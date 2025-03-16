@@ -10,9 +10,9 @@ namespace rag_experiment.Controllers
     [Route("api/[controller]")]
     public class RagController : ControllerBase
     {
-        private readonly DocumentIngestionService _ingestionService;
+        private readonly IDocumentIngestionService _ingestionService;
 
-        public RagController(DocumentIngestionService ingestionService)
+        public RagController(IDocumentIngestionService ingestionService)
         {
             _ingestionService = ingestionService;
         }

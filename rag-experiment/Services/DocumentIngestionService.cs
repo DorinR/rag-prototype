@@ -1,6 +1,6 @@
 namespace rag_experiment.Services
 {
-    public class DocumentIngestionService
+    public class DocumentIngestionService : IDocumentIngestionService
     {
         private readonly IObsidianVaultReader _vaultReader;
         private readonly ITextProcessor _textProcessor;

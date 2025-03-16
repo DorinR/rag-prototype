@@ -16,7 +16,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
-builder.Services.AddScoped<DocumentIngestionService>();
+builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
 
 var app = builder.Build();
 
