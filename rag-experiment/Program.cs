@@ -13,10 +13,12 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Register our services
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
 builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
+builder.Services.AddScoped<IEmbeddingService, OpenAIEmbeddingService>();
 
 var app = builder.Build();
 

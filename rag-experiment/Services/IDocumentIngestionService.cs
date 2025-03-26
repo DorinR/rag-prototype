@@ -6,12 +6,13 @@ namespace rag_experiment.Services
     public interface IDocumentIngestionService
     {
         /// <summary>
-        /// Ingests all markdown files from an Obsidian vault and processes them into chunks
+        /// Ingests all markdown files from an Obsidian vault, processes them into chunks,
+        /// and generates embeddings for each chunk
         /// </summary>
         /// <param name="vaultPath">Path to the Obsidian vault directory</param>
         /// <param name="maxChunkSize">Maximum size of each chunk in characters</param>
         /// <param name="overlap">Number of characters to overlap between chunks</param>
-        /// <returns>Dictionary with file paths as keys and their chunks as values</returns>
-        Task<Dictionary<string, List<string>>> IngestVaultAsync(string vaultPath, int maxChunkSize = 1000, int overlap = 100);
+        /// <returns>List of document embeddings ready to be stored in the vector database</returns>
+        Task<List<DocumentEmbedding>> IngestVaultAsync(string vaultPath, int maxChunkSize = 1000, int overlap = 100);
     }
 } 

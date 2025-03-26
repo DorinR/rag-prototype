@@ -27,11 +27,11 @@ namespace rag_experiment.Controllers
 
             try
             {
-                var result = await _ingestionService.IngestVaultAsync(vaultPath);
+                var documents = await _ingestionService.IngestVaultAsync(vaultPath);
                 return Ok(new { 
                     message = "Ingestion completed successfully", 
-                    filesProcessed = result.Count,
-                    totalChunks = result.Values.Sum(chunks => chunks.Count)
+                    documentsProcessed = documents.Count,
+                    uniqueFiles = documents.Select(d => d.Metadata["source_file"]).Distinct().Count()
                 });
             }
             catch (DirectoryNotFoundException)
