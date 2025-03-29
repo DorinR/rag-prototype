@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 
@@ -13,6 +14,7 @@ namespace rag_experiment.Services
     {
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
+        private readonly bool _enableRateLimiting;
         private const int MaxBatchSize = 100;
         private const int TokensPerMinuteLimit = 150000;
         private static readonly SemaphoreSlim _rateLimitSemaphore = new(1, 1);
@@ -23,6 +25,7 @@ namespace rag_experiment.Services
         {
             _apiKey = configuration["OpenAI:ApiKey"] 
                 ?? throw new ArgumentException("OpenAI API key not found in configuration");
+            _enableRateLimiting = configuration.GetValue<bool>("OpenAI:EnableRateLimiting", false);
             
             _httpClient = httpClient;
             _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
@@ -53,7 +56,13 @@ namespace rag_experiment.Services
 
                 response.EnsureSuccessStatusCode();
                 var responseContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Raw JSON Response: {responseContent}");
                 var embeddingResponse = JsonSerializer.Deserialize<EmbeddingResponse>(responseContent);
+
+                if (embeddingResponse?.Data == null || embeddingResponse.Usage == null)
+                {
+                    throw new InvalidOperationException($"Invalid response from OpenAI API: {responseContent}");
+                }
 
                 // Update rate limiting stats
                 await UpdateRateLimitStats(embeddingResponse.Usage.TotalTokens);
@@ -83,13 +92,21 @@ namespace rag_experiment.Services
 
             response.EnsureSuccessStatusCode();
             var responseContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Raw JSON Response: {responseContent}");
             var embeddingResponse = JsonSerializer.Deserialize<EmbeddingResponse>(responseContent);
+
+            if (embeddingResponse?.Data == null || embeddingResponse.Usage == null)
+            {
+                throw new InvalidOperationException($"Invalid response from OpenAI API: {responseContent}");
+            }
 
             return embeddingResponse.Data[0].Embedding;
         }
 
         private async Task WaitForRateLimit(List<string> batch)
         {
+            if (!_enableRateLimiting) return;
+            
             await _rateLimitSemaphore.WaitAsync();
             try
             {
@@ -125,6 +142,8 @@ namespace rag_experiment.Services
 
         private async Task UpdateRateLimitStats(int tokensUsed)
         {
+            if (!_enableRateLimiting) return;
+            
             await _rateLimitSemaphore.WaitAsync();
             try
             {
@@ -144,13 +163,23 @@ namespace rag_experiment.Services
 
         private class EmbeddingResponse
         {
-            public List<EmbeddingData> Data { get; set; }
-            public UsageInfo Usage { get; set; }
+            [JsonPropertyName("data")]
+            public List<EmbeddingData> Data { get; set; } = new();
+
+            [JsonPropertyName("usage")]
+            public UsageInfo Usage { get; set; } = new();
         }
 
         private class EmbeddingData
         {
-            public float[] Embedding { get; set; }
+            [JsonPropertyName("embedding")]
+            public float[] Embedding { get; set; } = Array.Empty<float>();
+
+            [JsonPropertyName("index")]
+            public int Index { get; set; }
+
+            [JsonPropertyName("object")]
+            public string Object { get; set; }
         }
 
         private class UsageInfo
