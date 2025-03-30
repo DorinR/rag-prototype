@@ -106,4 +106,7 @@ artifacts/
 *.log
 .cache/
 .temp/
-.tmp/ 
+.tmp/
+
+# New file
+appsettings.Development.json 
