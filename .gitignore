@@ -108,5 +108,9 @@ artifacts/
 .temp/
 .tmp/
 
+# SQLite database files
+*.db
+app.db
+
 # New file
 appsettings.Development.json 

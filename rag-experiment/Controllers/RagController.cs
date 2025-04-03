@@ -11,10 +11,12 @@ namespace rag_experiment.Controllers
     public class RagController : ControllerBase
     {
         private readonly IDocumentIngestionService _ingestionService;
+        private readonly EmbeddingService _embeddingService;
 
-        public RagController(IDocumentIngestionService ingestionService)
+        public RagController(IDocumentIngestionService ingestionService, EmbeddingService embeddingService)
         {
             _ingestionService = ingestionService;
+            _embeddingService = embeddingService;
         }
 
         [HttpPost("ingest")]
@@ -28,6 +30,13 @@ namespace rag_experiment.Controllers
             try
             {
                 var documents = await _ingestionService.IngestVaultAsync(vaultPath);
+
+                // Persist each document's embedding
+                foreach (var document in documents)
+                {
+                    _embeddingService.AddEmbedding(document.ChunkText, document.Embedding);
+                }
+
                 return Ok(new { 
                     message = "Ingestion completed successfully", 
                     documentsProcessed = documents.Count,
