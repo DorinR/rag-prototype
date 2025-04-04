@@ -13,14 +13,19 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "RAG API", Version = "v1" });
 });
 
-// Register our services
+// Register HttpClient services
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<QueryPreprocessor>();
+
+// Register our services
 builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
 builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
 builder.Services.AddScoped<IEmbeddingService, OpenAIEmbeddingService>();
 builder.Services.AddScoped<EmbeddingService>();
+// Register the query preprocessor service
+builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
 
 // Register AppDbContext with SQLite connection
 builder.Services.AddDbContext<AppDbContext>(options =>

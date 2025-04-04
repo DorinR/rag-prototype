@@ -14,15 +14,18 @@ namespace rag_experiment.Controllers
         private readonly IDocumentIngestionService _ingestionService;
         private readonly EmbeddingService _embeddingService;
         private readonly IEmbeddingService _openAIEmbeddingService;
+        private readonly IQueryPreprocessor _queryPreprocessor;
 
         public RagController(
             IDocumentIngestionService ingestionService, 
             EmbeddingService embeddingService,
-            IEmbeddingService openAIEmbeddingService)
+            IEmbeddingService openAIEmbeddingService,
+            IQueryPreprocessor queryPreprocessor)
         {
             _ingestionService = ingestionService;
             _embeddingService = embeddingService;
             _openAIEmbeddingService = openAIEmbeddingService;
+            _queryPreprocessor = queryPreprocessor;
         }
 
         [HttpPost("ingest")]
@@ -69,8 +72,11 @@ namespace rag_experiment.Controllers
 
             try
             {
-                // Generate embedding for the query
-                var queryEmbedding = await _openAIEmbeddingService.GenerateEmbeddingAsync(request.Query);
+                // Pre-process the query
+                string processedQuery = await _queryPreprocessor.ProcessQueryAsync(request.Query);
+                
+                // Generate embedding for the processed query
+                var queryEmbedding = await _openAIEmbeddingService.GenerateEmbeddingAsync(processedQuery);
                 
                 // Find similar documents
                 var limit = request.Limit > 0 ? request.Limit : 10;
@@ -85,7 +91,8 @@ namespace rag_experiment.Controllers
                 
                 return Ok(new
                 {
-                    query = request.Query,
+                    originalQuery = request.Query,
+                    processedQuery = processedQuery,
                     results = result
                 });
             }
