@@ -34,7 +34,6 @@ namespace rag_experiment.Services
                 ?? throw new ArgumentException("OpenAI API key not found in configuration");
             _openAiModel = configuration["OpenAI:ChatModel"] ?? "gpt-3.5-turbo";
             _logger = logger;
-            
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
         }
         

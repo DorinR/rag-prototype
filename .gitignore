@@ -101,16 +101,95 @@ obj/
 project.lock.json
 project.fragment.lock.json
 artifacts/
-
-# Misc
+*.swp
+*.swo
+*.bak
+*~
+*.dll
+*.so
+*.dylib
+*.exe
+*.pdb
+*.tmp
+*.nupkg
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
 *.log
-.cache/
-.temp/
-.tmp/
+*.vssscc
+*.pidb
+*.svclog
+*.scc
+*.sw[0-9]
+*.user
+*.userprefs
+*.usertasks
+*.vscode
 
-# SQLite database files
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Visual Studio files
+.vs/
+.vscode/
+*_i.c
+*_p.c
+*_i.h
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp_proj
+*.vspscc
+*.vssscc
+.builds
+*.sln.docstates
+
+# Database files
 *.db
-app.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+**/app.db
+
+# Temp & Cache
+.DS_Store
+Thumbs.db
+[Tt]emp/
+[Cc]ache/
+
+# Exceptions - files to keep in version control
+!docs/
+!docs/*.md
+!docs/**/*.md
 
 # New file
 appsettings.Development.json 

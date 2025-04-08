@@ -15,34 +15,41 @@ namespace rag_experiment.Services
             _context = context;
         }
 
-        public void AddEmbedding(string text, float[] embeddingData)
+        public void AddEmbedding(string text, float[] embeddingData, string documentLink = "")
         {
             var embedding = new Embedding
             {
                 Text = text,
-                EmbeddingData = ConvertToBlob(embeddingData)
+                EmbeddingData = ConvertToBlob(embeddingData),
+                DocumentLink = documentLink
             };
 
             _context.Embeddings.Add(embedding);
             _context.SaveChanges();
         }
 
-        public (int Id, string Text, float[] EmbeddingVector) GetEmbedding(int id)
+        public (int Id, string Text, float[] EmbeddingVector, string DocumentLink) GetEmbedding(int id)
         {
             var embedding = _context.Embeddings.Find(id);
             if (embedding == null)
                 return default;
                 
-            return (embedding.Id, embedding.Text, ConvertFromBlob(embedding.EmbeddingData));
+            return (embedding.Id, embedding.Text, ConvertFromBlob(embedding.EmbeddingData), embedding.DocumentLink);
         }
 
-        public void UpdateEmbedding(int id, string newText, float[] newEmbeddingData)
+        public void UpdateEmbedding(int id, string newText, float[] newEmbeddingData, string documentLink = null)
         {
             var embedding = _context.Embeddings.Find(id);
             if (embedding != null)
             {
                 embedding.Text = newText;
                 embedding.EmbeddingData = ConvertToBlob(newEmbeddingData);
+                
+                if (documentLink != null)
+                {
+                    embedding.DocumentLink = documentLink;
+                }
+                
                 _context.SaveChanges();
             }
         }
@@ -62,10 +69,10 @@ namespace rag_experiment.Services
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
         /// <param name="topK">Number of results to return</param>
-        /// <returns>List of text chunks and their similarity scores, ordered by similarity</returns>
-        public List<(string Text, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int topK = 10)
+        /// <returns>List of text chunks, document links, and their similarity scores, ordered by similarity</returns>
+        public List<(string Text, string DocumentLink, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int topK = 10)
         {
-            var results = new List<(string Text, float Similarity)>();
+            var results = new List<(string Text, string DocumentLink, float Similarity)>();
             
             // Load all embeddings from the database
             var embeddings = _context.Embeddings.ToList();
@@ -76,7 +83,7 @@ namespace rag_experiment.Services
                 var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
                 var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
                 
-                results.Add((embedding.Text, similarity));
+                results.Add((embedding.Text, embedding.DocumentLink, similarity));
             }
             
             // Return top K results, ordered by similarity (highest first)

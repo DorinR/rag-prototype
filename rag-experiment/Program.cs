@@ -13,12 +13,21 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "RAG API", Version = "v1" });
 });
 
+// Configure RAG settings from appsettings.json
+builder.Services.Configure<RagSettings>(
+    builder.Configuration.GetSection("RagConfiguration"));
+
+// Register LaTeX table service with configurable file path
+var latexTablePath = builder.Configuration["LatexTablePath"] ?? "experiment_results.md";
+builder.Services.AddSingleton(new LatexTableService(latexTablePath));
+
 // Register HttpClient services
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<QueryPreprocessor>();
 
 // Register our services
 builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
+builder.Services.AddScoped<ICisiPapersReader, CisiPapersReader>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
 builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
@@ -26,6 +35,10 @@ builder.Services.AddScoped<IEmbeddingService, OpenAIEmbeddingService>();
 builder.Services.AddScoped<EmbeddingService>();
 // Register the query preprocessor service
 builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
+// Register the evaluation service
+builder.Services.AddScoped<IEvaluationService, EvaluationService>();
+// Register the experiment service
+builder.Services.AddScoped<IExperimentService, ExperimentService>();
 
 // Register AppDbContext with SQLite connection
 builder.Services.AddDbContext<AppDbContext>(options =>
