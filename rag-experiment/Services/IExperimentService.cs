@@ -47,9 +47,9 @@ namespace rag_experiment.Services
             Dictionary<string, bool> textProcessingOptions);
             
         /// <summary>
-        /// Regenerates the LaTeX table using all experiments from the database
+        /// Regenerates the Markdown table using all experiments from the database
         /// </summary>
         /// <returns>A task that completes when the table has been regenerated</returns>
-        Task RegenerateLatexTableAsync();
+        Task RegenerateMarkdownTableAsync();
     }
 } 

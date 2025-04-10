@@ -191,5 +191,8 @@ Thumbs.db
 !docs/*.md
 !docs/**/*.md
 
+# Extracted research papers
+extracted_papers/
+
 # New file
 appsettings.Development.json 

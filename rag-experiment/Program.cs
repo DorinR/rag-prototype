@@ -17,9 +17,9 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.Configure<RagSettings>(
     builder.Configuration.GetSection("RagConfiguration"));
 
-// Register LaTeX table service with configurable file path
-var latexTablePath = builder.Configuration["LatexTablePath"] ?? "experiment_results.md";
-builder.Services.AddSingleton(new LatexTableService(latexTablePath));
+// Register Markdown table service with configurable file path
+var markdownTablePath = builder.Configuration["MarkdownTablePath"] ?? "experiment_results.md";
+builder.Services.AddSingleton(new MarkdownTableService(markdownTablePath));
 
 // Register HttpClient services
 builder.Services.AddHttpClient();

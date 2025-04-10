@@ -13,18 +13,18 @@ namespace rag_experiment.Services
         private readonly AppDbContext _dbContext;
         private readonly IEvaluationService _evaluationService;
         private readonly RagSettings _ragSettings;
-        private readonly LatexTableService _latexTableService;
+        private readonly MarkdownTableService _markdownTableService;
 
         public ExperimentService(
             AppDbContext dbContext, 
             IEvaluationService evaluationService,
             IOptions<RagSettings> ragSettings,
-            LatexTableService latexTableService)
+            MarkdownTableService markdownTableService)
         {
             _dbContext = dbContext;
             _evaluationService = evaluationService;
             _ragSettings = ragSettings.Value;
-            _latexTableService = latexTableService;
+            _markdownTableService = markdownTableService;
         }
 
         public async Task<ExperimentResult> SaveExperimentResultAsync(ExperimentResult experiment)
@@ -80,8 +80,8 @@ namespace rag_experiment.Services
             await _dbContext.ExperimentResults.AddAsync(experiment);
             await _dbContext.SaveChangesAsync();
             
-            // Update LaTeX table
-            await _latexTableService.AddExperimentToTableAsync(experiment);
+            // Update Markdown table
+            await _markdownTableService.AddExperimentToTableAsync(experiment);
             
             return experiment;
         }
@@ -156,7 +156,7 @@ namespace rag_experiment.Services
                 // Store detailed results as JSON
                 experiment.DetailedResults = JsonSerializer.Serialize(evaluationResult.QueryMetrics);
                 
-                // Save to database and update LaTeX table
+                // Save to database and update Markdown table
                 await SaveExperimentResultAsync(experiment);
                 
                 return experiment;
@@ -169,19 +169,19 @@ namespace rag_experiment.Services
             }
         }
         
-        public async Task RegenerateLatexTableAsync()
+        public async Task RegenerateMarkdownTableAsync()
         {
             try
             {
                 // Get all experiments from the database
                 var allExperiments = await GetAllExperimentsAsync();
                 
-                // Regenerate the LaTeX table
-                await _latexTableService.RegenerateTableFromExperimentsAsync(allExperiments);
+                // Regenerate the Markdown table
+                await _markdownTableService.RegenerateTableFromExperimentsAsync(allExperiments);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error regenerating LaTeX table: {ex.Message}");
+                Console.WriteLine($"Error regenerating Markdown table: {ex.Message}");
                 // Don't throw - this is a non-critical feature
             }
         }

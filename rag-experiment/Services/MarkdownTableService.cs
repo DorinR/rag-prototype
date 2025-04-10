@@ -8,11 +8,11 @@ using rag_experiment.Models;
 
 namespace rag_experiment.Services
 {
-    public class LatexTableService
+    public class MarkdownTableService
     {
         private readonly string _markdownFilePath;
         
-        public LatexTableService(string markdownFilePath = "experiment_results.md")
+        public MarkdownTableService(string markdownFilePath = "experiment_results.md")
         {
             _markdownFilePath = markdownFilePath;
             
@@ -50,24 +50,6 @@ namespace rag_experiment.Services
             content.AppendLine();
             content.AppendLine("Last updated: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") + " UTC");
             
-            content.AppendLine();
-            content.AppendLine("## LaTeX Format (for papers)");
-            content.AppendLine();
-            content.AppendLine("```latex");
-            content.AppendLine(@"\begin{table}[]");
-            content.AppendLine(@"\centering");
-            content.AppendLine(@"\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|}");
-            content.AppendLine(@"\hline");
-            content.AppendLine(@"\textbf{Name} & \textbf{Date} & \textbf{TopK} & \textbf{P} & \textbf{R} & \textbf{F1} & \textbf{ChunkSize} & \textbf{Overlap} & \textbf{Model} & \textbf{Text Proc.} & \textbf{Description} \\");
-            content.AppendLine(@"\hline");
-            content.AppendLine(@"% LATEX_EXPERIMENT_RESULTS");
-            content.AppendLine(@"\hline");
-            content.AppendLine(@"\end{tabular}");
-            content.AppendLine(@"\caption{RAG Experiment Results}");
-            content.AppendLine(@"\label{tab:experiment-results}");
-            content.AppendLine(@"\end{table}");
-            content.AppendLine("```");
-            
             File.WriteAllText(_markdownFilePath, content.ToString());
         }
         
@@ -81,23 +63,22 @@ namespace rag_experiment.Services
                 // Read the current content of the file
                 string content = await File.ReadAllTextAsync(_markdownFilePath);
                 
-                // Generate the markdown row and LaTeX row for the experiment
+                // Generate the markdown row for the experiment
                 string markdownRow = GenerateMarkdownRow(experiment);
-                string latexRow = GenerateLatexRow(experiment);
                 
                 // Update markdown table
                 if (content.Contains("<!-- EXPERIMENT_RESULTS -->"))
                 {
-                    // Insert the new row after the placeholder
-                    content = content.Replace("<!-- EXPERIMENT_RESULTS -->", 
-                        "<!-- EXPERIMENT_RESULTS -->\n" + markdownRow);
-                }
-                
-                // Update LaTeX table
-                if (content.Contains("% LATEX_EXPERIMENT_RESULTS"))
-                {
-                    content = content.Replace("% LATEX_EXPERIMENT_RESULTS",
-                        "% LATEX_EXPERIMENT_RESULTS\n" + latexRow);
+                    // Split the content into parts before and after the marker
+                    var parts = content.Split(new[] { "<!-- EXPERIMENT_RESULTS -->" }, StringSplitOptions.None);
+                    if (parts.Length == 2)
+                    {
+                        // Reconstruct the content with proper line breaks
+                        content = parts[0] + 
+                                 "<!-- EXPERIMENT_RESULTS -->\n" + 
+                                 markdownRow + "\n" + 
+                                 parts[1];
+                    }
                 }
                 
                 // Update the "Last updated" line
@@ -133,28 +114,27 @@ namespace rag_experiment.Services
                 // Read the current content of the file
                 string content = await File.ReadAllTextAsync(_markdownFilePath);
                 
-                // Generate all markdown and LaTeX rows
+                // Generate all markdown rows
                 var markdownRows = new StringBuilder();
-                var latexRows = new StringBuilder();
                 
                 foreach (var experiment in experiments)
                 {
                     markdownRows.AppendLine(GenerateMarkdownRow(experiment));
-                    latexRows.AppendLine(GenerateLatexRow(experiment));
                 }
                 
                 // Replace the markdown placeholder
                 if (content.Contains("<!-- EXPERIMENT_RESULTS -->"))
                 {
-                    content = content.Replace("<!-- EXPERIMENT_RESULTS -->", 
-                        "<!-- EXPERIMENT_RESULTS -->\n" + markdownRows.ToString().TrimEnd());
-                }
-                
-                // Replace the LaTeX placeholder
-                if (content.Contains("% LATEX_EXPERIMENT_RESULTS"))
-                {
-                    content = content.Replace("% LATEX_EXPERIMENT_RESULTS", 
-                        "% LATEX_EXPERIMENT_RESULTS\n" + latexRows.ToString().TrimEnd());
+                    // Split the content into parts before and after the marker
+                    var parts = content.Split(new[] { "<!-- EXPERIMENT_RESULTS -->" }, StringSplitOptions.None);
+                    if (parts.Length == 2)
+                    {
+                        // Reconstruct the content with proper line breaks
+                        content = parts[0] + 
+                                 "<!-- EXPERIMENT_RESULTS -->\n" + 
+                                 markdownRows.ToString().TrimEnd() + "\n" + 
+                                 parts[1];
+                    }
                 }
                 
                 // Update the "Last updated" line
@@ -202,28 +182,6 @@ namespace rag_experiment.Services
             return $"| {escapedName} | {formattedDate} | {experiment.TopK} | {precision} | {recall} | {f1Score} | {experiment.ChunkSize} | {experiment.ChunkOverlap} | {escapedModel} | {textProcessing} | {escapedDescription} |";
         }
         
-        private string GenerateLatexRow(ExperimentResult experiment)
-        {
-            // Escape special LaTeX characters
-            string escapedName = EscapeLatex(experiment.ExperimentName);
-            string escapedDescription = EscapeLatex(TruncateWithEllipsis(experiment.Description, 30));
-            string escapedModel = EscapeLatex(experiment.EmbeddingModelName);
-            
-            // Format date
-            string formattedDate = experiment.Timestamp.ToString("yyyy-MM-dd");
-            
-            // Format metrics with 3 decimal places
-            string precision = experiment.AveragePrecision.ToString("F3");
-            string recall = experiment.AverageRecall.ToString("F3");
-            string f1Score = experiment.AverageF1Score.ToString("F3");
-            
-            // Generate text processing flags
-            string textProcessing = GetTextProcessingFlags(experiment);
-            
-            // Build the LaTeX row
-            return $"{escapedName} & {formattedDate} & {experiment.TopK} & {precision} & {recall} & {f1Score} & {experiment.ChunkSize} & {experiment.ChunkOverlap} & {escapedModel} & {textProcessing} & {escapedDescription} \\\\";
-        }
-        
         private string GetTextProcessingFlags(ExperimentResult experiment)
         {
             var flags = new List<string>();
@@ -234,25 +192,6 @@ namespace rag_experiment.Services
             if (experiment.QueryExpansion) flags.Add("QE");
             
             return flags.Count > 0 ? string.Join(",", flags) : "none";
-        }
-        
-        private string EscapeLatex(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return "";
-                
-            return text
-                .Replace("\\", "\\textbackslash")
-                .Replace("&", "\\&")
-                .Replace("%", "\\%")
-                .Replace("$", "\\$")
-                .Replace("#", "\\#")
-                .Replace("_", "\\_")
-                .Replace("{", "\\{")
-                .Replace("}", "\\}")
-                .Replace("^", "\\^")
-                .Replace("~", "\\~")
-                .Replace("|", "\\|");
         }
         
         private string TruncateWithEllipsis(string text, int maxLength)

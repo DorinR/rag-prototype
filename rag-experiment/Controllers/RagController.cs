@@ -204,17 +204,17 @@ namespace rag_experiment.Controllers
             }
         }
         
-        [HttpPost("regenerate-latex-table")]
-        public async Task<IActionResult> RegenerateLatexTable()
+        [HttpPost("regenerate-markdown-table")]
+        public async Task<IActionResult> RegenerateMarkdownTable()
         {
             try
             {
-                await _experimentService.RegenerateLatexTableAsync();
-                return Ok(new { message = "LaTeX table regenerated successfully" });
+                await _experimentService.RegenerateMarkdownTableAsync();
+                return Ok(new { message = "Markdown table regenerated successfully" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"An error occurred regenerating the LaTeX table: {ex.Message}");
+                return StatusCode(500, $"An error occurred regenerating the Markdown table: {ex.Message}");
             }
         }
     }
