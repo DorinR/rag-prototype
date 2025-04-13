@@ -208,7 +208,7 @@ namespace rag_experiment.Services
                         Console.WriteLine($"Retrieved {retrievedDocs.Count} documents");
                         
                         // Extract document IDs from retrieved results
-                        var retrievedDocIds = retrievedDocs.Select(doc => doc.DocumentLink).ToList();
+                        var retrievedDocIds = retrievedDocs.Select(doc => doc.DocumentId).ToList();
                         Console.WriteLine($"Retrieved document IDs: [{string.Join(", ", retrievedDocIds.Take(5))}]" + (retrievedDocIds.Count > 5 ? ", ..." : ""));
                         
                         // Find intersection of relevant and retrieved docs

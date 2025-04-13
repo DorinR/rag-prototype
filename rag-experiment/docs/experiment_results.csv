@@ -1,0 +1,4 @@
+Id,Timestamp,ExperimentName,Description,EmbeddingModelName,EmbeddingDimension,ChunkSize,ChunkOverlap,StopwordRemoval,Stemming,Lemmatization,QueryExpansion,TopK,AveragePrecision,AverageRecall,AverageF1Score,Notes
+1,2025-04-08 02:36:18,First experiment,Testing to see if adding the experiment results to the database actually works,text-embedding-3-small,1536,1000,0,False,False,False,False,10,0.3579,0.1396,0.1662,Automatically saved from evaluate endpoint
+2,2025-04-08 02:43:16,Second test - with latex table generation this time :),Second test,text-embedding-3-small,1536,1000,0,False,False,False,False,10,0.3526,0.1372,0.1631,Automatically saved from evaluate endpoint
+3,2025-04-11 00:41:43,t3,t3,text-embedding-3-small,1536,1000,0,False,False,False,False,10,0.3500,0.1358,0.1620,Automatically saved from evaluate endpoint

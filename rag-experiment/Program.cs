@@ -39,6 +39,8 @@ builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
 builder.Services.AddScoped<IEvaluationService, EvaluationService>();
 // Register the experiment service
 builder.Services.AddScoped<IExperimentService, ExperimentService>();
+// Register the CSV export service
+builder.Services.AddScoped<ICsvExportService, CsvExportService>();
 
 // Register AppDbContext with SQLite connection
 builder.Services.AddDbContext<AppDbContext>(options =>

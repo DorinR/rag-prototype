@@ -32,7 +32,7 @@ namespace rag_experiment.Services
         {
             // Read all markdown files from the vault
             var files = await _vaultReader.ReadMarkdownFilesAsync(vaultPath);
-            var allChunks = new List<(string FilePath, string Chunk, string DocumentLink)>();
+            var allChunks = new List<(string FilePath, string Chunk, string DocumentId, string DocumentTitle)>();
 
             // Process each file and create chunks
             foreach (var (filePath, content) in files)
@@ -43,11 +43,14 @@ namespace rag_experiment.Services
                 // Chunk the processed text
                 var chunks = _textChunker.ChunkText(processedText, maxChunkSize, overlap);
 
-                // Generate document link for this file (assuming file:// protocol for local files)
-                var documentLink = $"file://{Path.GetFullPath(filePath)}";
+                // Generate document ID for this file
+                var documentId = $"file://{Path.GetFullPath(filePath)}";
+                
+                // Use the file name as the document title
+                var documentTitle = Path.GetFileNameWithoutExtension(filePath);
 
-                // Store chunks with their file path and document link
-                allChunks.AddRange(chunks.Select(chunk => (filePath, chunk, documentLink)));
+                // Store chunks with their file path, document ID and title
+                allChunks.AddRange(chunks.Select(chunk => (filePath, chunk, documentId, documentTitle)));
             }
 
             // Generate embeddings for all chunks
@@ -58,7 +61,7 @@ namespace rag_experiment.Services
             var result = new List<DocumentEmbedding>();
             for (var i = 0; i < allChunks.Count; i++)
             {
-                var (filePath, chunk, documentLink) = allChunks[i];
+                var (filePath, chunk, documentId, documentTitle) = allChunks[i];
                 var embedding = embeddings[chunk];
 
                 result.Add(new DocumentEmbedding
@@ -71,7 +74,8 @@ namespace rag_experiment.Services
                         { "source_file", filePath },
                         { "chunk_index", i.ToString() },
                         { "source_type", "obsidian_vault" },
-                        { "document_link", documentLink }
+                        { "document_id", documentId },
+                        { "document_title", documentTitle }
                     }
                 });
             }
@@ -83,7 +87,7 @@ namespace rag_experiment.Services
         {
             // Read all paper files from the directory
             var files = await _cisiPapersReader.ReadPapersAsync();
-            var allChunks = new List<(string FilePath, string Chunk, string DocumentLink)>();
+            var allChunks = new List<(string FilePath, string Chunk, string DocumentId, string DocumentTitle)>();
 
             // Process each file and create chunks
             foreach (var (filePath, content) in files)
@@ -96,6 +100,8 @@ namespace rag_experiment.Services
 
                 // Extract the doc_id from the content
                 string docId = "unknown";
+                string docTitle = "Unknown Title";
+                
                 // Look for the doc_id in the content's frontmatter
                 if (content.Contains("doc_id:"))
                 {
@@ -112,9 +118,24 @@ namespace rag_experiment.Services
                         }
                     }
                 }
+                
+                // Try to extract a title from the content
+                if (content.Contains("title:"))
+                {
+                    int startIndex = content.IndexOf("title:");
+                    if (startIndex >= 0)
+                    {
+                        int endIndex = content.IndexOf('\n', startIndex);
+                        if (endIndex > startIndex)
+                        {
+                            string titleLine = content.Substring(startIndex, endIndex - startIndex).Trim();
+                            docTitle = titleLine.Replace("title:", "").Trim();
+                        }
+                    }
+                }
 
-                // Store chunks with their file path and document link (now using the doc_id)
-                allChunks.AddRange(chunks.Select(chunk => (filePath, chunk, docId)));
+                // Store chunks with their file path, document ID and title
+                allChunks.AddRange(chunks.Select(chunk => (filePath, chunk, docId, docTitle)));
             }
 
             // Generate embeddings for all chunks
@@ -125,7 +146,7 @@ namespace rag_experiment.Services
             var result = new List<DocumentEmbedding>();
             for (var i = 0; i < allChunks.Count; i++)
             {
-                var (filePath, chunk, docId) = allChunks[i];
+                var (filePath, chunk, docId, docTitle) = allChunks[i];
                 var embedding = embeddings[chunk];
 
                 result.Add(new DocumentEmbedding
@@ -138,7 +159,8 @@ namespace rag_experiment.Services
                         { "source_file", filePath },
                         { "chunk_index", i.ToString() },
                         { "source_type", "cisi_paper" },
-                        { "document_link", docId }
+                        { "document_id", docId },
+                        { "document_title", docTitle }
                     }
                 });
             }

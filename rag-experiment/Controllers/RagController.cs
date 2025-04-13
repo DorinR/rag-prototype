@@ -20,6 +20,7 @@ namespace rag_experiment.Controllers
         private readonly IQueryPreprocessor _queryPreprocessor;
         private readonly IEvaluationService _evaluationService;
         private readonly IExperimentService _experimentService;
+        private readonly ICsvExportService _csvExportService;
         private readonly RagSettings _ragSettings;
 
         public RagController(
@@ -29,6 +30,7 @@ namespace rag_experiment.Controllers
             IQueryPreprocessor queryPreprocessor,
             IEvaluationService evaluationService,
             IExperimentService experimentService,
+            ICsvExportService csvExportService,
             IOptions<RagSettings> ragSettings)
         {
             _ingestionService = ingestionService;
@@ -37,6 +39,7 @@ namespace rag_experiment.Controllers
             _queryPreprocessor = queryPreprocessor;
             _evaluationService = evaluationService;
             _experimentService = experimentService;
+            _csvExportService = csvExportService;
             _ragSettings = ragSettings.Value;
         }
 
@@ -133,7 +136,8 @@ namespace rag_experiment.Controllers
                 var result = similarDocuments.Select(doc => new
                 {
                     text = doc.Text,
-                    documentLink = doc.DocumentLink,
+                    documentId = doc.DocumentId,
+                    documentTitle = doc.DocumentTitle,
                     similarity = doc.Similarity
                 }).ToList();
                 
@@ -186,12 +190,16 @@ namespace rag_experiment.Controllers
                 // Let the ExperimentService assign the rest of the values from configuration
                 await _experimentService.SaveExperimentResultAsync(experiment);
                 
+                // Generate CSV export of all experiment results
+                string csvFilePath = await _csvExportService.ExportExperimentsToCSVAsync();
+                
                 // Return both the evaluation result and the saved experiment ID
                 return Ok(new 
                 {
                     result,
                     experimentId = experiment.Id,
-                    message = $"Results automatically saved to experiment with ID {experiment.Id}"
+                    message = $"Results automatically saved to experiment with ID {experiment.Id}",
+                    csvExportPath = csvFilePath
                 });
             }
             catch (FileNotFoundException ex)
@@ -210,11 +218,35 @@ namespace rag_experiment.Controllers
             try
             {
                 await _experimentService.RegenerateMarkdownTableAsync();
-                return Ok(new { message = "Markdown table regenerated successfully" });
+                
+                // Also regenerate the CSV file
+                string csvPath = await _csvExportService.ExportExperimentsToCSVAsync();
+                
+                return Ok(new { 
+                    message = "Markdown table and CSV export regenerated successfully",
+                    csvPath = csvPath
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"An error occurred regenerating the Markdown table: {ex.Message}");
+                return StatusCode(500, $"An error occurred regenerating the Markdown table or CSV: {ex.Message}");
+            }
+        }
+        
+        [HttpGet("export-csv")]
+        public async Task<IActionResult> ExportToCsv([FromQuery] string filePath = null)
+        {
+            try
+            {
+                string csvPath = await _csvExportService.ExportExperimentsToCSVAsync(filePath);
+                return Ok(new { 
+                    message = "CSV export completed successfully", 
+                    csvPath = csvPath 
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred exporting to CSV: {ex.Message}");
             }
         }
     }

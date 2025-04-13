@@ -193,6 +193,8 @@ Thumbs.db
 
 # Extracted research papers
 extracted_papers/
+cisi_evaluation/
+cisi_papers/
 
 # New file
 appsettings.Development.json 
