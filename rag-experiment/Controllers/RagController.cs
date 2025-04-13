@@ -60,10 +60,17 @@ namespace rag_experiment.Controllers
                 // Add embeddings to the store (note: in a real-world scenario, you'd store these in a vector database)
                 foreach (var document in documents)
                 {
+                    // Get the source file path and extract file name
+                    string sourceFile = document.Metadata.TryGetValue("source_file", out var src) ? src : "";
+                    string fileName = Path.GetFileName(sourceFile);
+                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFile);
+                    
                     _embeddingService.AddEmbedding(
                         document.ChunkText, 
                         document.Embedding,
-                        document.Metadata.TryGetValue("document_link", out var link) ? link : "");
+                        fileName, // Use file name as document_link
+                        fileNameWithoutExtension // Use file name without extension as document_title
+                    );
                 }
                 
                 return Ok(new { 
@@ -92,10 +99,17 @@ namespace rag_experiment.Controllers
                 // Persist each document's embedding
                 foreach (var document in documents)
                 {
+                    // Get the source file path and extract file name
+                    string sourceFile = document.Metadata.TryGetValue("source_file", out var src) ? src : "";
+                    string fileName = Path.GetFileName(sourceFile);
+                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFile);
+                    
                     _embeddingService.AddEmbedding(
                         document.ChunkText, 
                         document.Embedding,
-                        document.Metadata.TryGetValue("document_link", out var link) ? link : "");
+                        fileName, // Use file name as document_link
+                        fileNameWithoutExtension // Use file name without extension as document_title
+                    );
                 }
 
                 return Ok(new { 
