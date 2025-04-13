@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using rag_experiment.Models;
 using System.IO;
 using Microsoft.Extensions.Options;
+using System.Text;
 
 namespace rag_experiment.Controllers
 {
@@ -22,6 +23,7 @@ namespace rag_experiment.Controllers
         private readonly IExperimentService _experimentService;
         private readonly ICsvExportService _csvExportService;
         private readonly RagSettings _ragSettings;
+        private readonly ILlmService _llmService;
 
         public RagController(
             IDocumentIngestionService ingestionService,
@@ -31,7 +33,8 @@ namespace rag_experiment.Controllers
             IEvaluationService evaluationService,
             IExperimentService experimentService,
             ICsvExportService csvExportService,
-            IOptions<RagSettings> ragSettings)
+            IOptions<RagSettings> ragSettings,
+            ILlmService llmService)
         {
             _ingestionService = ingestionService;
             _embeddingService = embeddingService;
@@ -41,19 +44,18 @@ namespace rag_experiment.Controllers
             _experimentService = experimentService;
             _csvExportService = csvExportService;
             _ragSettings = ragSettings.Value;
+            _llmService = llmService;
         }
 
         [HttpPost("ingest")]
-        public async Task<IActionResult> Ingest([FromQuery] string vaultPath)
+        public async Task<IActionResult> Ingest([FromQuery] string? vaultPath = null)
         {
-            if (string.IsNullOrEmpty(vaultPath))
-            {
-                return BadRequest("Vault path is required");
-            }
-            
             try
             {
-                var documents = await _ingestionService.IngestVaultAsync(vaultPath);
+                // Using hardcoded path to PDF documents
+                string pdfDirectoryPath = Path.Combine("Test Data", "ww2-articles");
+                
+                var documents = await _ingestionService.IngestPdfDocumentsAsync(pdfDirectoryPath);
                 
                 // Add embeddings to the store (note: in a real-world scenario, you'd store these in a vector database)
                 foreach (var document in documents)
@@ -65,18 +67,18 @@ namespace rag_experiment.Controllers
                 }
                 
                 return Ok(new { 
-                    message = "Ingestion completed successfully", 
+                    message = "PDF documents ingestion completed successfully", 
                     documentsProcessed = documents.Count,
                     uniqueFiles = documents.Select(d => d.Metadata["source_file"]).Distinct().Count()
                 });
             }
-            catch (DirectoryNotFoundException)
+            catch (DirectoryNotFoundException ex)
             {
-                return NotFound($"The specified vault directory was not found: {vaultPath}");
+                return NotFound($"The PDF documents directory was not found: {ex.Message}");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"An error occurred during ingestion: {ex.Message}");
+                return StatusCode(500, $"An error occurred during PDF ingestion: {ex.Message}");
             }
         }
 
@@ -132,8 +134,8 @@ namespace rag_experiment.Controllers
                 var limit = request.Limit > 0 ? request.Limit : 10;
                 var similarDocuments = _embeddingService.FindSimilarEmbeddings(queryEmbedding, limit);
                 
-                // Format the response
-                var result = similarDocuments.Select(doc => new
+                // Format the retrieved passages
+                var retrievedResults = similarDocuments.Select(doc => new
                 {
                     text = doc.Text,
                     documentId = doc.DocumentId,
@@ -141,11 +143,26 @@ namespace rag_experiment.Controllers
                     similarity = doc.Similarity
                 }).ToList();
                 
+                // Combine the top chunks into a single context string
+                var contextBuilder = new StringBuilder();
+                foreach (var doc in retrievedResults)
+                {
+                    contextBuilder.AppendLine($"--- {doc.documentTitle} ---");
+                    contextBuilder.AppendLine(doc.text);
+                    contextBuilder.AppendLine();
+                }
+                string combinedContext = contextBuilder.ToString();
+                
+                // Generate LLM response using the combined context
+                string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
+                
+                // Return the formatted response with both retrieved chunks and LLM answer
                 return Ok(new
                 {
                     originalQuery = request.Query,
                     processedQuery = processedQuery,
-                    results = result
+                    llmResponse = llmResponse,
+                    retrievedChunks = retrievedResults
                 });
             }
             catch (Exception ex)

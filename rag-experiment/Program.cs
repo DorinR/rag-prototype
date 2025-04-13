@@ -1,6 +1,7 @@
 using Microsoft.OpenApi.Models;
 using rag_experiment.Services;
 using Microsoft.EntityFrameworkCore;
+using rag_experiment.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,18 +29,16 @@ builder.Services.AddHttpClient<QueryPreprocessor>();
 // Register our services
 builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
 builder.Services.AddScoped<ICisiPapersReader, CisiPapersReader>();
+builder.Services.AddScoped<IPdfDocumentReader, PdfDocumentReader>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
 builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
 builder.Services.AddScoped<IEmbeddingService, OpenAIEmbeddingService>();
 builder.Services.AddScoped<EmbeddingService>();
-// Register the query preprocessor service
 builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
-// Register the evaluation service
+builder.Services.AddScoped<ILlmService, OpenAILlmService>();
 builder.Services.AddScoped<IEvaluationService, EvaluationService>();
-// Register the experiment service
 builder.Services.AddScoped<IExperimentService, ExperimentService>();
-// Register the CSV export service
 builder.Services.AddScoped<ICsvExportService, CsvExportService>();
 
 // Register AppDbContext with SQLite connection
@@ -47,6 +46,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
+
+// Apply any pending migrations
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    dbContext.Database.Migrate();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
