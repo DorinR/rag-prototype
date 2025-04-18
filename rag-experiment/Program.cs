@@ -28,7 +28,6 @@ builder.Services.AddHttpClient<QueryPreprocessor>();
 
 // Register our services
 builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
-builder.Services.AddScoped<ICisiPapersReader, CisiPapersReader>();
 builder.Services.AddScoped<IPdfDocumentReader, PdfDocumentReader>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
