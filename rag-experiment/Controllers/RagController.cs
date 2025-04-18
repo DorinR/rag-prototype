@@ -54,9 +54,9 @@ namespace rag_experiment.Controllers
             {
                 // Using hardcoded path to PDF documents
                 string pdfDirectoryPath = Path.Combine("Test Data", "ww2-articles");
-                
+
                 var documents = await _ingestionService.IngestPdfDocumentsAsync(pdfDirectoryPath);
-                
+
                 // Add embeddings to the store (note: in a real-world scenario, you'd store these in a vector database)
                 foreach (var document in documents)
                 {
@@ -64,17 +64,18 @@ namespace rag_experiment.Controllers
                     string sourceFile = document.Metadata.TryGetValue("source_file", out var src) ? src : "";
                     string fileName = Path.GetFileName(sourceFile);
                     string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFile);
-                    
+
                     _embeddingService.AddEmbedding(
-                        document.ChunkText, 
+                        document.ChunkText,
                         document.Embedding,
-                        fileName, // Use file name as document_link
-                        fileNameWithoutExtension // Use file name without extension as document_title
+                        fileName, // Document id
+                        fileNameWithoutExtension // File name
                     );
                 }
-                
-                return Ok(new { 
-                    message = "PDF documents ingestion completed successfully", 
+
+                return Ok(new
+                {
+                    message = "PDF documents ingestion completed successfully",
                     documentsProcessed = documents.Count,
                     uniqueFiles = documents.Select(d => d.Metadata["source_file"]).Distinct().Count()
                 });
@@ -86,45 +87,6 @@ namespace rag_experiment.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred during PDF ingestion: {ex.Message}");
-            }
-        }
-
-        [HttpPost("ingest-cisi-papers")]
-        public async Task<IActionResult> IngestCisiPapers()
-        {
-            try
-            {
-                var documents = await _ingestionService.IngestCisiPapersAsync();
-
-                // Persist each document's embedding
-                foreach (var document in documents)
-                {
-                    // Get the source file path and extract file name
-                    string sourceFile = document.Metadata.TryGetValue("source_file", out var src) ? src : "";
-                    string fileName = Path.GetFileName(sourceFile);
-                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFile);
-                    
-                    _embeddingService.AddEmbedding(
-                        document.ChunkText, 
-                        document.Embedding,
-                        fileName, // Use file name as document_link
-                        fileNameWithoutExtension // Use file name without extension as document_title
-                    );
-                }
-
-                return Ok(new { 
-                    message = "CISI papers ingestion completed successfully", 
-                    documentsProcessed = documents.Count,
-                    uniqueFiles = documents.Select(d => d.Metadata["source_file"]).Distinct().Count()
-                });
-            }
-            catch (DirectoryNotFoundException ex)
-            {
-                return NotFound($"CISI papers directory not found: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred during CISI papers ingestion: {ex.Message}");
             }
         }
 
@@ -140,14 +102,14 @@ namespace rag_experiment.Controllers
             {
                 // Pre-process the query
                 string processedQuery = await _queryPreprocessor.ProcessQueryAsync(request.Query);
-                
+
                 // Generate embedding for the processed query
                 var queryEmbedding = await _openAIEmbeddingService.GenerateEmbeddingAsync(processedQuery);
-                
+
                 // Find similar documents
                 var limit = request.Limit > 0 ? request.Limit : 10;
                 var similarDocuments = _embeddingService.FindSimilarEmbeddings(queryEmbedding, limit);
-                
+
                 // Format the retrieved passages
                 var retrievedResults = similarDocuments.Select(doc => new
                 {
@@ -156,7 +118,7 @@ namespace rag_experiment.Controllers
                     documentTitle = doc.DocumentTitle,
                     similarity = doc.Similarity
                 }).ToList();
-                
+
                 // Combine the top chunks into a single context string
                 var contextBuilder = new StringBuilder();
                 foreach (var doc in retrievedResults)
@@ -166,10 +128,10 @@ namespace rag_experiment.Controllers
                     contextBuilder.AppendLine();
                 }
                 string combinedContext = contextBuilder.ToString();
-                
+
                 // Generate LLM response using the combined context
                 string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
-                
+
                 // Return the formatted response with both retrieved chunks and LLM answer
                 return Ok(new
                 {
@@ -191,25 +153,25 @@ namespace rag_experiment.Controllers
             try
             {
                 Console.WriteLine("Starting system evaluation...");
-                
+
                 // Set default request object if null
                 request ??= new EvaluationRequest();
-                
+
                 // Run the evaluation using topK from request or config
                 var topK = request.TopK > 0 ? request.TopK : _ragSettings.Retrieval.DefaultTopK;
                 var result = await _evaluationService.EvaluateSystemAsync(topK);
-                
+
                 // Create experiment result object with values from request or configuration
                 var experiment = new ExperimentResult
                 {
-                    ExperimentName = !string.IsNullOrEmpty(request.ExperimentName) 
-                        ? request.ExperimentName 
+                    ExperimentName = !string.IsNullOrEmpty(request.ExperimentName)
+                        ? request.ExperimentName
                         : $"Evaluation_{DateTime.UtcNow:yyyyMMdd_HHmmss}",
                     Description = !string.IsNullOrEmpty(request.Description)
                         ? request.Description
                         : $"Auto-generated from evaluation with TopK={topK}",
                     TopK = topK,
-                    
+
                     // Use values from the actual system configuration
                     AveragePrecision = result.AveragePrecision,
                     AverageRecall = result.AverageRecall,
@@ -217,15 +179,15 @@ namespace rag_experiment.Controllers
                     DetailedResults = System.Text.Json.JsonSerializer.Serialize(result.QueryMetrics),
                     Notes = "Automatically saved from evaluate endpoint"
                 };
-                
+
                 // Let the ExperimentService assign the rest of the values from configuration
                 await _experimentService.SaveExperimentResultAsync(experiment);
-                
+
                 // Generate CSV export of all experiment results
                 string csvFilePath = await _csvExportService.ExportExperimentsToCSVAsync();
-                
+
                 // Return both the evaluation result and the saved experiment ID
-                return Ok(new 
+                return Ok(new
                 {
                     result,
                     experimentId = experiment.Id,
@@ -242,18 +204,19 @@ namespace rag_experiment.Controllers
                 return StatusCode(500, $"An error occurred during evaluation: {ex.Message}");
             }
         }
-        
+
         [HttpPost("regenerate-markdown-table")]
         public async Task<IActionResult> RegenerateMarkdownTable()
         {
             try
             {
                 await _experimentService.RegenerateMarkdownTableAsync();
-                
+
                 // Also regenerate the CSV file
                 string csvPath = await _csvExportService.ExportExperimentsToCSVAsync();
-                
-                return Ok(new { 
+
+                return Ok(new
+                {
                     message = "Markdown table and CSV export regenerated successfully",
                     csvPath = csvPath
                 });
@@ -263,16 +226,17 @@ namespace rag_experiment.Controllers
                 return StatusCode(500, $"An error occurred regenerating the Markdown table or CSV: {ex.Message}");
             }
         }
-        
+
         [HttpGet("export-csv")]
         public async Task<IActionResult> ExportToCsv([FromQuery] string filePath = null)
         {
             try
             {
                 string csvPath = await _csvExportService.ExportExperimentsToCSVAsync(filePath);
-                return Ok(new { 
-                    message = "CSV export completed successfully", 
-                    csvPath = csvPath 
+                return Ok(new
+                {
+                    message = "CSV export completed successfully",
+                    csvPath = csvPath
                 });
             }
             catch (Exception ex)
@@ -287,4 +251,4 @@ namespace rag_experiment.Controllers
         public string Query { get; set; }
         public int Limit { get; set; } = 10;
     }
-} 
+}
