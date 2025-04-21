@@ -14,6 +14,17 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "RAG API", Version = "v1" });
 });
 
+// Add CORS service to allow requests from any origin
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 // Configure RAG settings from appsettings.json
 builder.Services.Configure<RagSettings>(
     builder.Configuration.GetSection("RagConfiguration"));
@@ -58,10 +69,13 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "RAG API v1"));
-    
+
     // Redirect root to Swagger UI
     app.MapGet("/", () => Results.Redirect("/swagger/index.html"));
 }
+
+// Enable CORS with the "AllowAll" policy
+app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();
 
