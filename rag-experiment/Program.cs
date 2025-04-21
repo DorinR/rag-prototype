@@ -15,6 +15,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Add CORS service to allow requests from any origin
+// TODO: Remove this before deploying to production
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>

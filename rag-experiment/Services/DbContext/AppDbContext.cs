@@ -7,9 +7,10 @@ namespace rag_experiment.Services
     {
         public DbSet<Embedding> Embeddings { get; set; }
         public DbSet<ExperimentResult> ExperimentResults { get; set; }
+        public DbSet<Document> Documents { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
     }
-} 
+}
