@@ -198,3 +198,6 @@ cisi_papers/
 
 # New file
 appsettings.Development.json 
+
+# Document uploads
+Uploads/
