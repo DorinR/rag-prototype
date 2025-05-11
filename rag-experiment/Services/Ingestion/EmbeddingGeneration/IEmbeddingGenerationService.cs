@@ -1,9 +1,6 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
 namespace rag_experiment.Services
 {
-    public interface IEmbeddingService
+    public interface IEmbeddingGenerationService
     {
         /// <summary>
         /// Generates embeddings for a list of text chunks using OpenAI's API
@@ -19,4 +16,4 @@ namespace rag_experiment.Services
         /// <returns>Embedding vector for the text</returns>
         Task<float[]> GenerateEmbeddingAsync(string text);
     }
-} 
+}

@@ -2,6 +2,8 @@ using Microsoft.OpenApi.Models;
 using rag_experiment.Services;
 using Microsoft.EntityFrameworkCore;
 using rag_experiment.Models;
+using rag_experiment.Services.Events;
+using rag_experiment.Services.Ingestion.VectorStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,7 +46,7 @@ builder.Services.AddScoped<IPdfDocumentReader, PdfDocumentReader>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
 builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
-builder.Services.AddScoped<IEmbeddingService, OpenAIEmbeddingService>();
+builder.Services.AddScoped<IEmbeddingGenerationService, OpenAiEmbeddingGenerationService>();
 builder.Services.AddScoped<EmbeddingService>();
 builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
 builder.Services.AddScoped<ILlmService, OpenAILlmService>();
@@ -83,5 +85,13 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// During app startup
+EventBus.Subscribe<DocumentUploadedEvent>(async evt =>
+{
+    using var scope = app.Services.CreateScope();
+    var ingestionService = scope.ServiceProvider.GetRequiredService<IDocumentIngestionService>();
+    await ingestionService.IngestDocumentAsync(evt.DocumentId);
+});
 
 app.Run();

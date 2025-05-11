@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace rag_experiment.Models
 {
     public class EvaluationMetrics

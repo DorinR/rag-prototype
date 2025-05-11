@@ -1,5 +1,4 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using rag_experiment.Services.Ingestion.VectorStorage;
 
 namespace rag_experiment.Services
 {
@@ -24,5 +23,14 @@ namespace rag_experiment.Services
         /// <param name="overlap">Number of characters to overlap between chunks</param>
         /// <returns>List of document embeddings ready to be stored in the vector database</returns>
         Task<List<DocumentEmbedding>> IngestPdfDocumentsAsync(string directoryPath, int maxChunkSize = 1000, int overlap = 100);
+
+        /// <summary>
+        /// Processes a single document and generates embeddings for its content
+        /// </summary>
+        /// <param name="documentId">The ID of the document to process</param>
+        /// <param name="maxChunkSize">Maximum size of each text chunk</param>
+        /// <param name="overlap">Number of characters to overlap between chunks</param>
+        /// <returns>List of document embeddings generated from the document</returns>
+        Task<List<DocumentEmbedding>> IngestDocumentAsync(int documentId, int maxChunkSize = 1000, int overlap = 100);
     }
 }

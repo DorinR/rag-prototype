@@ -1,5 +1,3 @@
-using System;
-
 namespace rag_experiment.Models
 {
     public class Document

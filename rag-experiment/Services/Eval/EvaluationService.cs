@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using rag_experiment.Models;
+using rag_experiment.Services.Ingestion.VectorStorage;
 
 namespace rag_experiment.Services
 {
@@ -13,16 +9,16 @@ namespace rag_experiment.Services
     {
         private readonly string _qryFilePath = Path.Combine("Test Data", "cisi_evaluation", "CISI.QRY");
         private readonly string _relFilePath = Path.Combine("Test Data", "cisi_evaluation", "CISI.REL");
-        private readonly IEmbeddingService _embeddingService;
+        private readonly IEmbeddingGenerationService _embeddingGenerationService;
         private readonly IQueryPreprocessor _queryPreprocessor;
         private readonly EmbeddingService _dbEmbeddingService;
 
         public EvaluationService(
-            IEmbeddingService embeddingService,
+            IEmbeddingGenerationService embeddingGenerationService,
             IQueryPreprocessor queryPreprocessor,
             EmbeddingService dbEmbeddingService)
         {
-            _embeddingService = embeddingService;
+            _embeddingGenerationService = embeddingGenerationService;
             _queryPreprocessor = queryPreprocessor;
             _dbEmbeddingService = dbEmbeddingService;
         }
@@ -202,7 +198,7 @@ namespace rag_experiment.Services
                         Console.WriteLine("Processing query...");
                         string processedQuery = await _queryPreprocessor.ProcessQueryAsync(queryText);
                         Console.WriteLine("Generating embedding...");
-                        var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(processedQuery);
+                        var queryEmbedding = await _embeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
                         Console.WriteLine("Finding similar embeddings...");
                         var retrievedDocs = _dbEmbeddingService.FindSimilarEmbeddings(queryEmbedding, topK);
                         Console.WriteLine($"Retrieved {retrievedDocs.Count} documents");

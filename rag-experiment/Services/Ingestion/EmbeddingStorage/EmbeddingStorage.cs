@@ -1,12 +1,8 @@
-using System;
-using System.Linq;
-using System.Collections.Generic;
 using rag_experiment.Models;
-using System.Numerics;
 
-namespace rag_experiment.Services
+namespace rag_experiment.Services.Ingestion.VectorStorage
 {
-    public class EmbeddingService
+    public class EmbeddingService : IEmbeddingStorage
     {
         private readonly AppDbContext _context;
 
@@ -34,7 +30,7 @@ namespace rag_experiment.Services
             var embedding = _context.Embeddings.Find(id);
             if (embedding == null)
                 return default;
-                
+
             return (embedding.Id, embedding.Text, ConvertFromBlob(embedding.EmbeddingData), embedding.DocumentId, embedding.DocumentTitle);
         }
 
@@ -45,7 +41,7 @@ namespace rag_experiment.Services
             {
                 embedding.Text = newText;
                 embedding.EmbeddingData = ConvertToBlob(newEmbeddingData);
-                
+
                 if (documentId != null)
                 {
                     embedding.DocumentId = documentId;
@@ -55,7 +51,7 @@ namespace rag_experiment.Services
                 {
                     embedding.DocumentTitle = documentTitle;
                 }
-                
+
                 _context.SaveChanges();
             }
         }
@@ -79,19 +75,19 @@ namespace rag_experiment.Services
         public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int topK = 10)
         {
             var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
-            
+
             // Load all embeddings from the database
             var embeddings = _context.Embeddings.ToList();
-            
+
             // Calculate similarity for each embedding
             foreach (var embedding in embeddings)
             {
                 var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
                 var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
-                
+
                 results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
             }
-            
+
             // Return top K results, ordered by similarity (highest first)
             return results
                 .OrderByDescending(r => r.Similarity)
@@ -109,22 +105,22 @@ namespace rag_experiment.Services
         {
             if (a.Length != b.Length)
                 return 0; // Return minimum similarity score instead of throwing exception
-                
+
             float dotProduct = 0;
             float normA = 0;
             float normB = 0;
-            
+
             for (int i = 0; i < a.Length; i++)
             {
                 dotProduct += a[i] * b[i];
                 normA += a[i] * a[i];
                 normB += b[i] * b[i];
             }
-            
+
             // Handle zero vectors
             if (normA == 0 || normB == 0)
                 return 0;
-                
+
             return dotProduct / (float)(Math.Sqrt(normA) * Math.Sqrt(normB));
         }
 
@@ -133,22 +129,22 @@ namespace rag_experiment.Services
             // Convert the float array to a byte array
             // Each float is 4 bytes
             byte[] blob = new byte[embeddingData.Length * sizeof(float)];
-            
+
             // Copy the float array to the byte array
             Buffer.BlockCopy(embeddingData, 0, blob, 0, blob.Length);
-            
+
             return blob;
         }
-        
+
         private float[] ConvertFromBlob(byte[] blob)
         {
             // Convert the byte array back to a float array
             float[] embeddingData = new float[blob.Length / sizeof(float)];
-            
+
             // Copy the byte array to the float array
             Buffer.BlockCopy(blob, 0, embeddingData, 0, blob.Length);
-            
+
             return embeddingData;
         }
     }
-} 
+}

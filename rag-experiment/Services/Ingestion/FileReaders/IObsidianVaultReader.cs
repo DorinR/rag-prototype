@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
 namespace rag_experiment.Services
 {
     public interface IObsidianVaultReader

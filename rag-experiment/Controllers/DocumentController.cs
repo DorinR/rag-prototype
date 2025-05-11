@@ -1,11 +1,7 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using rag_experiment.Models;
 using rag_experiment.Services;
+using rag_experiment.Services.Events;
 
 namespace rag_experiment.Controllers
 {
@@ -60,6 +56,9 @@ namespace rag_experiment.Controllers
                 _dbContext.Documents.Add(document);
                 await _dbContext.SaveChangesAsync();
 
+                // Publish event for document processing
+                EventBus.Publish(new DocumentUploadedEvent(document.Id));
+
                 return Ok(new
                 {
                     documentId = document.Id,
@@ -109,6 +108,42 @@ namespace rag_experiment.Controllers
                 document.UploadedAt,
                 document.Description
             });
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteDocument(int id)
+        {
+            try
+            {
+                // Find the document
+                var document = await _dbContext.Documents.FindAsync(id);
+                if (document == null)
+                    return NotFound("Document not found");
+
+                // Delete associated embeddings
+                var documentIdString = $"file://{Path.GetFullPath(document.FilePath)}";
+                var embeddingsToDelete = _dbContext.Embeddings
+                    .Where(e => e.DocumentId == documentIdString)
+                    .ToList();
+
+                _dbContext.Embeddings.RemoveRange(embeddingsToDelete);
+
+                // Delete the physical file
+                if (System.IO.File.Exists(document.FilePath))
+                {
+                    System.IO.File.Delete(document.FilePath);
+                }
+
+                // Delete the document record
+                _dbContext.Documents.Remove(document);
+                await _dbContext.SaveChangesAsync();
+
+                return Ok(new { message = "Document and associated embeddings deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while deleting the document: {ex.Message}");
+            }
         }
     }
 }

@@ -1,14 +1,7 @@
-using System;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Linq;
-using System.Collections.Generic;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 namespace rag_experiment.Services
 {

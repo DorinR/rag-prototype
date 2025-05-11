@@ -1,13 +1,9 @@
-using System;
 using Microsoft.AspNetCore.Mvc;
 using rag_experiment.Services;
-using System.Threading.Tasks;
-using System.Linq;
-using System.Collections.Generic;
 using rag_experiment.Models;
-using System.IO;
 using Microsoft.Extensions.Options;
 using System.Text;
+using rag_experiment.Services.Ingestion.VectorStorage;
 
 namespace rag_experiment.Controllers
 {
@@ -17,7 +13,7 @@ namespace rag_experiment.Controllers
     {
         private readonly IDocumentIngestionService _ingestionService;
         private readonly EmbeddingService _embeddingService;
-        private readonly IEmbeddingService _openAIEmbeddingService;
+        private readonly IEmbeddingGenerationService _openAiEmbeddingGenerationService;
         private readonly IQueryPreprocessor _queryPreprocessor;
         private readonly IEvaluationService _evaluationService;
         private readonly IExperimentService _experimentService;
@@ -28,7 +24,7 @@ namespace rag_experiment.Controllers
         public RagController(
             IDocumentIngestionService ingestionService,
             EmbeddingService embeddingService,
-            IEmbeddingService openAIEmbeddingService,
+            IEmbeddingGenerationService openAiEmbeddingGenerationService,
             IQueryPreprocessor queryPreprocessor,
             IEvaluationService evaluationService,
             IExperimentService experimentService,
@@ -38,7 +34,7 @@ namespace rag_experiment.Controllers
         {
             _ingestionService = ingestionService;
             _embeddingService = embeddingService;
-            _openAIEmbeddingService = openAIEmbeddingService;
+            _openAiEmbeddingGenerationService = openAiEmbeddingGenerationService;
             _queryPreprocessor = queryPreprocessor;
             _evaluationService = evaluationService;
             _experimentService = experimentService;
@@ -55,6 +51,7 @@ namespace rag_experiment.Controllers
                 // Using hardcoded path to PDF documents
                 string pdfDirectoryPath = Path.Combine("Test Data", "ww2-articles");
 
+                // Generate embeddings
                 var documents = await _ingestionService.IngestPdfDocumentsAsync(pdfDirectoryPath);
 
                 // Add embeddings to the store (note: in a real-world scenario, you'd store these in a vector database)
@@ -104,7 +101,7 @@ namespace rag_experiment.Controllers
                 string processedQuery = await _queryPreprocessor.ProcessQueryAsync(request.Query);
 
                 // Generate embedding for the processed query
-                var queryEmbedding = await _openAIEmbeddingService.GenerateEmbeddingAsync(processedQuery);
+                var queryEmbedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
 
                 // Find similar documents
                 var limit = request.Limit > 0 ? request.Limit : 10;
