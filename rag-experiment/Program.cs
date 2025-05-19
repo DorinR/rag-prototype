@@ -80,8 +80,6 @@ if (app.Environment.IsDevelopment())
 // Enable CORS with the "AllowAll" policy
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
-
 app.UseAuthorization();
 
 app.MapControllers();
