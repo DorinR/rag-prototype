@@ -11,16 +11,16 @@ namespace rag_experiment.Services
         private readonly string _relFilePath = Path.Combine("Test Data", "cisi_evaluation", "CISI.REL");
         private readonly IEmbeddingGenerationService _embeddingGenerationService;
         private readonly IQueryPreprocessor _queryPreprocessor;
-        private readonly EmbeddingService _dbEmbeddingService;
+        private readonly EmbeddingStorage _dbEmbeddingStorage;
 
         public EvaluationService(
             IEmbeddingGenerationService embeddingGenerationService,
             IQueryPreprocessor queryPreprocessor,
-            EmbeddingService dbEmbeddingService)
+            EmbeddingStorage dbEmbeddingStorage)
         {
             _embeddingGenerationService = embeddingGenerationService;
             _queryPreprocessor = queryPreprocessor;
-            _dbEmbeddingService = dbEmbeddingService;
+            _dbEmbeddingStorage = dbEmbeddingStorage;
         }
 
         public async Task<Dictionary<int, string>> ReadQueriesAsync()
@@ -200,7 +200,7 @@ namespace rag_experiment.Services
                         Console.WriteLine("Generating embedding...");
                         var queryEmbedding = await _embeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
                         Console.WriteLine("Finding similar embeddings...");
-                        var retrievedDocs = _dbEmbeddingService.FindSimilarEmbeddings(queryEmbedding, topK);
+                        var retrievedDocs = _dbEmbeddingStorage.FindSimilarEmbeddings(queryEmbedding, topK);
                         Console.WriteLine($"Retrieved {retrievedDocs.Count} documents");
                         
                         // Extract document IDs from retrieved results

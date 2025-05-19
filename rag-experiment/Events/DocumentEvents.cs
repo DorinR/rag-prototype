@@ -40,4 +40,16 @@ namespace rag_experiment.Services.Events
             Timestamp = DateTime.UtcNow;
         }
     }
+
+    public class DocumentDeletedEvent
+    {
+        public int DocumentId { get; }
+        public DateTime Timestamp { get; }
+
+        public DocumentDeletedEvent(int documentId)
+        {
+            DocumentId = documentId;
+            Timestamp = DateTime.UtcNow;
+        }
+    }
 }

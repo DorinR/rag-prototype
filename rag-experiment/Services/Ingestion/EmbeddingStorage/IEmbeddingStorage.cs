@@ -46,6 +46,12 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         void DeleteEmbedding(int id);
 
         /// <summary>
+        /// Deletes all embeddings associated with a specific document ID
+        /// </summary>
+        /// <param name="documentId">The document ID whose embeddings should be deleted</param>
+        void DeleteEmbeddingsByDocumentId(string documentId);
+
+        /// <summary>
         /// Finds the most similar embeddings in the database to the query embedding
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>

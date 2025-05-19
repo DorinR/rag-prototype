@@ -9,7 +9,7 @@ namespace rag_experiment.Services
         private readonly ITextProcessor _textProcessor;
         private readonly ITextChunker _textChunker;
         private readonly IEmbeddingGenerationService _embeddingGenerationService;
-        private readonly EmbeddingService _embeddingStorage;
+        private readonly EmbeddingStorage _embeddingStorageStorage;
         private readonly AppDbContext _dbContext;
 
         public DocumentIngestionService(
@@ -18,7 +18,7 @@ namespace rag_experiment.Services
             ITextProcessor textProcessor,
             ITextChunker textChunker,
             IEmbeddingGenerationService embeddingGenerationService,
-            EmbeddingService embeddingStorage,
+            EmbeddingStorage embeddingStorageStorage,
             AppDbContext dbContext)
         {
             _vaultReader = vaultReader;
@@ -26,7 +26,7 @@ namespace rag_experiment.Services
             _textProcessor = textProcessor;
             _textChunker = textChunker;
             _embeddingGenerationService = embeddingGenerationService;
-            _embeddingStorage = embeddingStorage;
+            _embeddingStorageStorage = embeddingStorageStorage;
             _dbContext = dbContext;
         }
 
@@ -86,7 +86,7 @@ namespace rag_experiment.Services
                 result.Add(documentEmbedding);
 
                 // Store in the vector database using the embedding service
-                _embeddingStorage.AddEmbedding(
+                _embeddingStorageStorage.AddEmbedding(
                     text: chunk,
                     embeddingData: embedding,
                     documentId: document.Id.ToString(),

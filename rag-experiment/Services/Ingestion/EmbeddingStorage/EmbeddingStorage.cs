@@ -2,11 +2,11 @@ using rag_experiment.Models;
 
 namespace rag_experiment.Services.Ingestion.VectorStorage
 {
-    public class EmbeddingService : IEmbeddingStorage
+    public class EmbeddingStorage : IEmbeddingStorage
     {
         private readonly AppDbContext _context;
 
-        public EmbeddingService(AppDbContext context)
+        public EmbeddingStorage(AppDbContext context)
         {
             _context = context;
         }
@@ -62,6 +62,19 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             if (embedding != null)
             {
                 _context.Embeddings.Remove(embedding);
+                _context.SaveChanges();
+            }
+        }
+
+        public void DeleteEmbeddingsByDocumentId(string documentId)
+        {
+            var embeddingsToDelete = _context.Embeddings
+                .Where(e => e.DocumentId == documentId)
+                .ToList();
+
+            if (embeddingsToDelete.Any())
+            {
+                _context.Embeddings.RemoveRange(embeddingsToDelete);
                 _context.SaveChanges();
             }
         }

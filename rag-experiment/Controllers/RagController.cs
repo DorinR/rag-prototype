@@ -12,7 +12,7 @@ namespace rag_experiment.Controllers
     public class RagController : ControllerBase
     {
         private readonly IDocumentIngestionService _ingestionService;
-        private readonly EmbeddingService _embeddingService;
+        private readonly EmbeddingStorage _embeddingStorage;
         private readonly IEmbeddingGenerationService _openAiEmbeddingGenerationService;
         private readonly IQueryPreprocessor _queryPreprocessor;
         private readonly IEvaluationService _evaluationService;
@@ -23,7 +23,7 @@ namespace rag_experiment.Controllers
 
         public RagController(
             IDocumentIngestionService ingestionService,
-            EmbeddingService embeddingService,
+            EmbeddingStorage embeddingStorage,
             IEmbeddingGenerationService openAiEmbeddingGenerationService,
             IQueryPreprocessor queryPreprocessor,
             IEvaluationService evaluationService,
@@ -33,7 +33,7 @@ namespace rag_experiment.Controllers
             ILlmService llmService)
         {
             _ingestionService = ingestionService;
-            _embeddingService = embeddingService;
+            _embeddingStorage = embeddingStorage;
             _openAiEmbeddingGenerationService = openAiEmbeddingGenerationService;
             _queryPreprocessor = queryPreprocessor;
             _evaluationService = evaluationService;
@@ -62,7 +62,7 @@ namespace rag_experiment.Controllers
                     string fileName = Path.GetFileName(sourceFile);
                     string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFile);
 
-                    _embeddingService.AddEmbedding(
+                    _embeddingStorage.AddEmbedding(
                         document.ChunkText,
                         document.Embedding,
                         fileName, // Document id
@@ -105,7 +105,7 @@ namespace rag_experiment.Controllers
 
                 // Find similar documents
                 var limit = request.Limit > 0 ? request.Limit : 10;
-                var similarDocuments = _embeddingService.FindSimilarEmbeddings(queryEmbedding, limit);
+                var similarDocuments = _embeddingStorage.FindSimilarEmbeddings(queryEmbedding, limit);
 
                 // Format the retrieved passages
                 var retrievedResults = similarDocuments.Select(doc => new

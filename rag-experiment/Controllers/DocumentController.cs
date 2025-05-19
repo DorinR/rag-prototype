@@ -120,14 +120,6 @@ namespace rag_experiment.Controllers
                 if (document == null)
                     return NotFound("Document not found");
 
-                // Delete associated embeddings
-                var documentIdString = $"file://{Path.GetFullPath(document.FilePath)}";
-                var embeddingsToDelete = _dbContext.Embeddings
-                    .Where(e => e.DocumentId == documentIdString)
-                    .ToList();
-
-                _dbContext.Embeddings.RemoveRange(embeddingsToDelete);
-
                 // Delete the physical file
                 if (System.IO.File.Exists(document.FilePath))
                 {
@@ -137,6 +129,9 @@ namespace rag_experiment.Controllers
                 // Delete the document record
                 _dbContext.Documents.Remove(document);
                 await _dbContext.SaveChangesAsync();
+
+                // Publish document deleted event
+                EventBus.Publish(new DocumentDeletedEvent(id));
 
                 return Ok(new { message = "Document and associated embeddings deleted successfully" });
             }

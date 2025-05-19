@@ -47,7 +47,7 @@ builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
 builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
 builder.Services.AddScoped<IEmbeddingGenerationService, OpenAiEmbeddingGenerationService>();
-builder.Services.AddScoped<EmbeddingService>();
+builder.Services.AddScoped<EmbeddingStorage>();
 builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
 builder.Services.AddScoped<ILlmService, OpenAILlmService>();
 builder.Services.AddScoped<IEvaluationService, EvaluationService>();
@@ -92,6 +92,13 @@ EventBus.Subscribe<DocumentUploadedEvent>(async evt =>
     using var scope = app.Services.CreateScope();
     var ingestionService = scope.ServiceProvider.GetRequiredService<IDocumentIngestionService>();
     await ingestionService.IngestDocumentAsync(evt.DocumentId);
+});
+
+EventBus.Subscribe<DocumentDeletedEvent>(evt =>
+{
+    using var scope = app.Services.CreateScope();
+    var embeddingStorageService = scope.ServiceProvider.GetRequiredService<EmbeddingStorage>();
+    embeddingStorageService.DeleteEmbeddingsByDocumentId(evt.DocumentId.ToString());
 });
 
 app.Run();
