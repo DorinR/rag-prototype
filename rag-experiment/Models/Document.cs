@@ -10,5 +10,9 @@ namespace rag_experiment.Models
         public string FilePath { get; set; }
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
         public string Description { get; set; }
+
+        // User association
+        public int UserId { get; set; }
+        public User User { get; set; }
     }
 }

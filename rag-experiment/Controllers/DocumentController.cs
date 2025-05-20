@@ -1,21 +1,30 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using rag_experiment.Models;
 using rag_experiment.Services;
 using rag_experiment.Services.Events;
+using rag_experiment.Services.Auth;
 
 namespace rag_experiment.Controllers
 {
     [ApiController]
+    [Authorize] // Require authentication for all endpoints
     [Route("api/[controller]")]
     public class DocumentController : ControllerBase
     {
         private readonly AppDbContext _dbContext;
         private readonly IWebHostEnvironment _environment;
+        private readonly IUserContext _userContext;
 
-        public DocumentController(AppDbContext dbContext, IWebHostEnvironment environment)
+        public DocumentController(
+            AppDbContext dbContext,
+            IWebHostEnvironment environment,
+            IUserContext userContext)
         {
             _dbContext = dbContext;
             _environment = environment;
+            _userContext = userContext;
         }
 
         [HttpPost("upload")]
@@ -26,6 +35,8 @@ namespace rag_experiment.Controllers
 
             try
             {
+                var userId = _userContext.GetCurrentUserId();
+
                 // Create uploads directory if it doesn't exist
                 var uploadsDirectory = Path.Combine(_environment.ContentRootPath, "Uploads");
                 if (!Directory.Exists(uploadsDirectory))
@@ -49,7 +60,8 @@ namespace rag_experiment.Controllers
                     ContentType = file.ContentType,
                     FileSize = file.Length,
                     FilePath = filePath,
-                    Description = description
+                    Description = description,
+                    UserId = userId
                 };
 
                 // Save to database
@@ -76,7 +88,10 @@ namespace rag_experiment.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllDocuments()
         {
-            var documents = _dbContext.Documents
+            var userId = _userContext.GetCurrentUserId();
+
+            var documents = await _dbContext.Documents
+                .Where(d => d.UserId == userId)
                 .Select(d => new
                 {
                     d.Id,
@@ -86,7 +101,7 @@ namespace rag_experiment.Controllers
                     d.UploadedAt,
                     d.Description
                 })
-                .ToList();
+                .ToListAsync();
 
             return Ok(documents);
         }
@@ -94,7 +109,10 @@ namespace rag_experiment.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetDocument(int id)
         {
-            var document = await _dbContext.Documents.FindAsync(id);
+            var userId = _userContext.GetCurrentUserId();
+
+            var document = await _dbContext.Documents
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
 
             if (document == null)
                 return NotFound("Document not found");
@@ -115,8 +133,12 @@ namespace rag_experiment.Controllers
         {
             try
             {
+                var userId = _userContext.GetCurrentUserId();
+
                 // Find the document
-                var document = await _dbContext.Documents.FindAsync(id);
+                var document = await _dbContext.Documents
+                    .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
+
                 if (document == null)
                     return NotFound("Document not found");
 

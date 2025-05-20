@@ -1,24 +1,31 @@
 using rag_experiment.Models;
+using rag_experiment.Services.Auth;
+using Microsoft.EntityFrameworkCore;
 
 namespace rag_experiment.Services.Ingestion.VectorStorage
 {
     public class EmbeddingStorage : IEmbeddingStorage
     {
         private readonly AppDbContext _context;
+        private readonly IUserContext _userContext;
 
-        public EmbeddingStorage(AppDbContext context)
+        public EmbeddingStorage(AppDbContext context, IUserContext userContext)
         {
             _context = context;
+            _userContext = userContext;
         }
 
         public void AddEmbedding(string text, float[] embeddingData, string documentId = "", string documentTitle = "")
         {
+            var userId = _userContext.GetCurrentUserId();
+
             var embedding = new Embedding
             {
                 Text = text,
                 EmbeddingData = ConvertToBlob(embeddingData),
                 DocumentId = documentId,
-                DocumentTitle = documentTitle
+                DocumentTitle = documentTitle,
+                UserId = userId
             };
 
             _context.Embeddings.Add(embedding);
@@ -27,7 +34,11 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
 
         public (int Id, string Text, float[] EmbeddingVector, string DocumentId, string DocumentTitle) GetEmbedding(int id)
         {
-            var embedding = _context.Embeddings.Find(id);
+            var userId = _userContext.GetCurrentUserId();
+
+            var embedding = _context.Embeddings
+                .FirstOrDefault(e => e.Id == id && e.UserId == userId);
+
             if (embedding == null)
                 return default;
 
@@ -36,7 +47,11 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
 
         public void UpdateEmbedding(int id, string newText, float[] newEmbeddingData, string documentId = null, string documentTitle = null)
         {
-            var embedding = _context.Embeddings.Find(id);
+            var userId = _userContext.GetCurrentUserId();
+
+            var embedding = _context.Embeddings
+                .FirstOrDefault(e => e.Id == id && e.UserId == userId);
+
             if (embedding != null)
             {
                 embedding.Text = newText;
@@ -58,7 +73,11 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
 
         public void DeleteEmbedding(int id)
         {
-            var embedding = _context.Embeddings.Find(id);
+            var userId = _userContext.GetCurrentUserId();
+
+            var embedding = _context.Embeddings
+                .FirstOrDefault(e => e.Id == id && e.UserId == userId);
+
             if (embedding != null)
             {
                 _context.Embeddings.Remove(embedding);
@@ -68,8 +87,10 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
 
         public void DeleteEmbeddingsByDocumentId(string documentId)
         {
+            var userId = _userContext.GetCurrentUserId();
+
             var embeddingsToDelete = _context.Embeddings
-                .Where(e => e.DocumentId == documentId)
+                .Where(e => e.DocumentId == documentId && e.UserId == userId)
                 .ToList();
 
             if (embeddingsToDelete.Any())
@@ -87,10 +108,13 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
         public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int topK = 10)
         {
+            var userId = _userContext.GetCurrentUserId();
             var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
 
-            // Load all embeddings from the database
-            var embeddings = _context.Embeddings.ToList();
+            // Load all embeddings from the database for the current user
+            var embeddings = _context.Embeddings
+                .Where(e => e.UserId == userId)
+                .ToList();
 
             // Calculate similarity for each embedding
             foreach (var embedding in embeddings)
