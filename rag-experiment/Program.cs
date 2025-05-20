@@ -128,8 +128,8 @@ builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
 builder.Services.AddScoped<IPdfDocumentReader, PdfDocumentReader>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
-builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
 builder.Services.AddScoped<IEmbeddingGenerationService, OpenAiEmbeddingGenerationService>();
+builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
 builder.Services.AddScoped<EmbeddingStorage>();
 builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
 builder.Services.AddScoped<ILlmService, OpenAILlmService>();
@@ -174,14 +174,14 @@ EventBus.Subscribe<DocumentUploadedEvent>(async evt =>
 {
     using var scope = app.Services.CreateScope();
     var ingestionService = scope.ServiceProvider.GetRequiredService<IDocumentIngestionService>();
-    await ingestionService.IngestDocumentAsync(evt.DocumentId);
+    await ingestionService.IngestDocumentAsync(evt.DocumentId_, evt.UserId_);
 });
 
 EventBus.Subscribe<DocumentDeletedEvent>(evt =>
 {
     using var scope = app.Services.CreateScope();
     var embeddingStorageService = scope.ServiceProvider.GetRequiredService<EmbeddingStorage>();
-    embeddingStorageService.DeleteEmbeddingsByDocumentId(evt.DocumentId.ToString());
+    embeddingStorageService.DeleteEmbeddingsByDocumentId(evt.DocumentId_.ToString());
 });
 
 app.Run();

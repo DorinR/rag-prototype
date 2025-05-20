@@ -5,32 +5,11 @@ namespace rag_experiment.Services
     public interface IDocumentIngestionService
     {
         /// <summary>
-        /// Ingests all markdown files from an Obsidian vault, processes them into chunks,
-        /// and generates embeddings for each chunk
-        /// </summary>
-        /// <param name="vaultPath">Path to the Obsidian vault directory</param>
-        /// <param name="maxChunkSize">Maximum size of each chunk in characters</param>
-        /// <param name="overlap">Number of characters to overlap between chunks</param>
-        /// <returns>List of document embeddings ready to be stored in the vector database</returns>
-        Task<List<DocumentEmbedding>> IngestVaultAsync(string vaultPath, int maxChunkSize = 1000, int overlap = 100);
-
-        /// <summary>
-        /// Ingests all PDF documents from the specified directory, processes them into chunks,
-        /// and generates embeddings for each chunk
-        /// </summary>
-        /// <param name="directoryPath">Path to the directory containing PDF files</param>
-        /// <param name="maxChunkSize">Maximum size of each chunk in characters</param>
-        /// <param name="overlap">Number of characters to overlap between chunks</param>
-        /// <returns>List of document embeddings ready to be stored in the vector database</returns>
-        Task<List<DocumentEmbedding>> IngestPdfDocumentsAsync(string directoryPath, int maxChunkSize = 1000, int overlap = 100);
-
-        /// <summary>
         /// Processes a single document and generates embeddings for its content
         /// </summary>
         /// <param name="documentId">The ID of the document to process</param>
-        /// <param name="maxChunkSize">Maximum size of each text chunk</param>
-        /// <param name="overlap">Number of characters to overlap between chunks</param>
+        /// <param name="userId">The ID of the user who is ingesting the document</param>
         /// <returns>List of document embeddings generated from the document</returns>
-        Task<List<DocumentEmbedding>> IngestDocumentAsync(int documentId, int maxChunkSize = 1000, int overlap = 100);
+        Task<List<DocumentEmbedding>> IngestDocumentAsync(int documentId, int userId);
     }
 }

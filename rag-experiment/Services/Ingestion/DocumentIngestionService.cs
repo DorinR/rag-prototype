@@ -2,6 +2,7 @@ using rag_experiment.Services.Ingestion.VectorStorage;
 
 namespace rag_experiment.Services
 {
+
     public class DocumentIngestionService : IDocumentIngestionService
     {
         private readonly IObsidianVaultReader _vaultReader;
@@ -30,21 +31,24 @@ namespace rag_experiment.Services
             _dbContext = dbContext;
         }
 
-        public async Task<List<DocumentEmbedding>> IngestDocumentAsync(int documentId, int maxChunkSize = 1000, int overlap = 100)
+        public async Task<List<DocumentEmbedding>> IngestDocumentAsync(int documentId, int userId)
         {
-            // Get the document from the database
+            int maxChunkSize = 1000;
+            int overlap = 200;
+
+
             var document = await _dbContext.Documents.FindAsync(documentId);
             if (document == null)
             {
                 throw new ArgumentException($"Document with ID {documentId} not found");
             }
 
-            // Read the document content
-            string content;
-            if (document.ContentType.Contains("pdf"))
+            // Extract text based on file type
+            string text;
+            if (document.ContentType == "application/pdf")
             {
-                var pdfContent = await _pdfDocumentReader.ReadPdfFilesAsync(Path.GetDirectoryName(document.FilePath));
-                content = pdfContent[document.FilePath];
+                var pdfContents = await _pdfDocumentReader.ReadPdfFilesAsync(Path.GetDirectoryName(document.FilePath));
+                text = pdfContents[document.FilePath];
             }
             else
             {
@@ -52,12 +56,12 @@ namespace rag_experiment.Services
             }
 
             // Process the text
-            var processedText = _textProcessor.ProcessText(content);
+            var processedText = _textProcessor.ProcessText(text);
 
-            // Chunk the processed text
+            // Split into chunks
             var chunks = _textChunker.ChunkText(processedText, maxChunkSize, overlap);
 
-            // Generate embeddings for all chunks
+            // Generate embeddings for each chunk
             var embeddings = await _embeddingGenerationService.GenerateEmbeddingsAsync(chunks);
 
             // Create DocumentEmbedding objects and store them
@@ -78,7 +82,8 @@ namespace rag_experiment.Services
                         { "chunk_index", i.ToString() },
                         { "source_type", "uploaded_document" },
                         { "document_id", document.Id.ToString() },
-                        { "document_title", document.OriginalFileName }
+                        { "document_title", document.OriginalFileName },
+                        { "user_id", userId.ToString() }
                     }
                 };
 
@@ -90,122 +95,13 @@ namespace rag_experiment.Services
                     text: chunk,
                     embeddingData: embedding,
                     documentId: document.Id.ToString(),
-                    documentTitle: document.OriginalFileName
+                    documentTitle: document.OriginalFileName,
+                    userId: userId
                 );
             }
 
             // Save changes to the database
             await _dbContext.SaveChangesAsync();
-
-            return result;
-        }
-
-        public async Task<List<DocumentEmbedding>> IngestVaultAsync(string vaultPath, int maxChunkSize = 1000, int overlap = 100)
-        {
-            // Read all markdown files from the vault
-            var files = await _vaultReader.ReadMarkdownFilesAsync(vaultPath);
-            var allChunks = new List<(string FilePath, string Chunk, string DocumentId, string DocumentTitle)>();
-
-            // Process each file and create chunks
-            foreach (var (filePath, content) in files)
-            {
-                // Process the text
-                var processedText = _textProcessor.ProcessText(content);
-
-                // Chunk the processed text
-                var chunks = _textChunker.ChunkText(processedText, maxChunkSize, overlap);
-
-                // Generate document ID for this file
-                var documentId = $"file://{Path.GetFullPath(filePath)}";
-
-                // Use the file name as the document title
-                var documentTitle = Path.GetFileNameWithoutExtension(filePath);
-
-                // Store chunks with their file path, document ID and title
-                allChunks.AddRange(chunks.Select(chunk => (filePath, chunk, documentId, documentTitle)));
-            }
-
-            // Generate embeddings for all chunks
-            var chunksOnly = allChunks.Select(x => x.Chunk).ToList();
-            var embeddings = await _embeddingGenerationService.GenerateEmbeddingsAsync(chunksOnly);
-
-            // Create DocumentEmbedding objects
-            var result = new List<DocumentEmbedding>();
-            for (var i = 0; i < allChunks.Count; i++)
-            {
-                var (filePath, chunk, documentId, documentTitle) = allChunks[i];
-                var embedding = embeddings[chunk];
-
-                result.Add(new DocumentEmbedding
-                {
-                    DocumentId = $"{filePath}_{i}", // Unique ID for each chunk
-                    ChunkText = chunk,
-                    Embedding = embedding,
-                    Metadata = new Dictionary<string, string>
-                    {
-                        { "source_file", filePath },
-                        { "chunk_index", i.ToString() },
-                        { "source_type", "obsidian_vault" },
-                        { "document_id", documentId },
-                        { "document_title", documentTitle }
-                    }
-                });
-            }
-
-            return result;
-        }
-
-        public async Task<List<DocumentEmbedding>> IngestPdfDocumentsAsync(string directoryPath, int maxChunkSize = 1000, int overlap = 100)
-        {
-            // Read all PDF files from the directory
-            var files = await _pdfDocumentReader.ReadPdfFilesAsync(directoryPath);
-            var allChunks = new List<(string FilePath, string Chunk, string DocumentId, string DocumentTitle)>();
-
-            // Process each file and create chunks
-            foreach (var (filePath, content) in files)
-            {
-                // Process the text
-                var processedText = _textProcessor.ProcessText(content);
-
-                // Chunk the processed text
-                var chunks = _textChunker.ChunkText(processedText, maxChunkSize, overlap);
-
-                // Generate document ID for this file
-                var documentId = $"file://{Path.GetFullPath(filePath)}";
-
-                // Use the file name as the document title
-                var documentTitle = Path.GetFileNameWithoutExtension(filePath);
-
-                // Store chunks with their file path, document ID and title
-                allChunks.AddRange(chunks.Select(chunk => (filePath, chunk, documentId, documentTitle)));
-            }
-
-            // Generate embeddings for all chunks
-            var chunksOnly = allChunks.Select(x => x.Chunk).ToList();
-            var embeddings = await _embeddingGenerationService.GenerateEmbeddingsAsync(chunksOnly);
-
-            // Create DocumentEmbedding objects
-            var result = new List<DocumentEmbedding>();
-            for (var i = 0; i < allChunks.Count; i++)
-            {
-                var (filePath, chunk, documentId, documentTitle) = allChunks[i];
-                var embedding = embeddings[chunk];
-
-                result.Add(new DocumentEmbedding
-                {
-                    DocumentId = $"{filePath}_{i}", // Unique ID for each chunk
-                    ChunkText = chunk,
-                    Embedding = embedding,
-                    Metadata = new Dictionary<string, string>
-                    {
-                        { "source_file", filePath },
-                        { "chunk_index", i.ToString() },
-                        { "source_type", "pdf_document" },
-                        { "document_id", documentId },
-                        { "document_title", documentTitle }
-                    }
-                });
-            }
 
             return result;
         }

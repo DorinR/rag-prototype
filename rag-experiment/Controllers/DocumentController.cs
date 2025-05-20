@@ -69,7 +69,7 @@ namespace rag_experiment.Controllers
                 await _dbContext.SaveChangesAsync();
 
                 // Publish event for document processing
-                EventBus.Publish(new DocumentUploadedEvent(document.Id));
+                EventBus.Publish(new DocumentUploadedEvent(document.Id, userId));
 
                 return Ok(new
                 {

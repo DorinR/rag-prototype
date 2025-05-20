@@ -43,50 +43,6 @@ namespace rag_experiment.Controllers
             _llmService = llmService;
         }
 
-        [HttpPost("ingest")]
-        public async Task<IActionResult> Ingest([FromQuery] string? vaultPath = null)
-        {
-            try
-            {
-                // Using hardcoded path to PDF documents
-                string pdfDirectoryPath = Path.Combine("Test Data", "ww2-articles");
-
-                // Generate embeddings
-                var documents = await _ingestionService.IngestPdfDocumentsAsync(pdfDirectoryPath);
-
-                // Add embeddings to the store (note: in a real-world scenario, you'd store these in a vector database)
-                foreach (var document in documents)
-                {
-                    // Get the source file path and extract file name
-                    string sourceFile = document.Metadata.TryGetValue("source_file", out var src) ? src : "";
-                    string fileName = Path.GetFileName(sourceFile);
-                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFile);
-
-                    _embeddingStorage.AddEmbedding(
-                        document.ChunkText,
-                        document.Embedding,
-                        fileName, // Document id
-                        fileNameWithoutExtension // File name
-                    );
-                }
-
-                return Ok(new
-                {
-                    message = "PDF documents ingestion completed successfully",
-                    documentsProcessed = documents.Count,
-                    uniqueFiles = documents.Select(d => d.Metadata["source_file"]).Distinct().Count()
-                });
-            }
-            catch (DirectoryNotFoundException ex)
-            {
-                return NotFound($"The PDF documents directory was not found: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred during PDF ingestion: {ex.Message}");
-            }
-        }
-
         [HttpPost("query")]
         public async Task<IActionResult> Query([FromBody] QueryRequest request)
         {

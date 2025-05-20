@@ -15,9 +15,9 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             _userContext = userContext;
         }
 
-        public void AddEmbedding(string text, float[] embeddingData, string documentId = "", string documentTitle = "")
+        public void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, string documentTitle)
         {
-            var userId = _userContext.GetCurrentUserId();
+            // If userId is not provided, try to get it from the context
 
             var embedding = new Embedding
             {

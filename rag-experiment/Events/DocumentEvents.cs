@@ -2,11 +2,13 @@ namespace rag_experiment.Services.Events
 {
     public class DocumentUploadedEvent
     {
-        public int DocumentId { get; }
+        public int DocumentId_ { get; }
+        public int UserId_ { get; }
 
-        public DocumentUploadedEvent(int documentId)
+        public DocumentUploadedEvent(int documentId, int userId)
         {
-            DocumentId = documentId;
+            DocumentId_ = documentId;
+            UserId_ = userId;
         }
     }
 
@@ -43,12 +45,12 @@ namespace rag_experiment.Services.Events
 
     public class DocumentDeletedEvent
     {
-        public int DocumentId { get; }
+        public int DocumentId_ { get; }
         public DateTime Timestamp { get; }
 
         public DocumentDeletedEvent(int documentId)
         {
-            DocumentId = documentId;
+            DocumentId_ = documentId;
             Timestamp = DateTime.UtcNow;
         }
     }

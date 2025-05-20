@@ -18,9 +18,10 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// </summary>
         /// <param name="text">The text content</param>
         /// <param name="embeddingData">The embedding vector</param>
-        /// <param name="documentId">Optional document ID</param>
-        /// <param name="documentTitle">Optional document title</param>
-        void AddEmbedding(string text, float[] embeddingData, string documentId = "", string documentTitle = "");
+        /// <param name="documentId">document ID</param>
+        /// <param name="userId">user ID</param>
+        /// <param name="documentTitle">document title</param>
+        void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, string documentTitle);
 
         /// <summary>
         /// Retrieves an embedding by its ID
