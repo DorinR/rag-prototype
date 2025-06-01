@@ -14,17 +14,20 @@ namespace rag_experiment.Controllers
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly AppDbContext _context;
+        private readonly IWebHostEnvironment _environment;
 
         public AuthController(
             IAuthService authService,
             IConfiguration configuration,
             ILogger<AuthController> logger,
-            AppDbContext context)
+            AppDbContext context,
+            IWebHostEnvironment environment)
         {
             _authService = authService;
             _configuration = configuration;
             _logger = logger;
             _context = context;
+            _environment = environment;
         }
 
         [HttpPost("register")]
@@ -160,19 +163,23 @@ namespace rag_experiment.Controllers
 
         private void SetTokenCookies(string jwtToken, string refreshToken)
         {
+            // For cross-origin cookies, we need SameSite=None and Secure=true
+            // In development, we might need to handle localhost scenarios
+            var isProduction = !_environment.IsDevelopment();
+
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true, // Only send cookie over HTTPS
-                SameSite = SameSiteMode.Strict,
+                Secure = isProduction, // Required for SameSite=None in production
+                SameSite = SameSiteMode.None, // Required for cross-origin requests
                 Expires = DateTime.UtcNow.AddDays(7)
             };
 
             Response.Cookies.Append("token", jwtToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                Secure = isProduction, // Required for SameSite=None in production
+                SameSite = SameSiteMode.None, // Required for cross-origin requests
                 Expires = DateTime.UtcNow.AddMinutes(15) // Match JWT token expiry
             });
 
