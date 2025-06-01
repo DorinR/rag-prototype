@@ -95,6 +95,11 @@ if (allowedOrigins == null || !allowedOrigins.Any())
     throw new InvalidOperationException("No allowed origins configured for CORS");
 }
 
+// Debug logging for production troubleshooting
+Console.WriteLine($"[CORS DEBUG] Environment: {builder.Environment.EnvironmentName}");
+Console.WriteLine($"[CORS DEBUG] Allowed Origins: [{string.Join(", ", allowedOrigins)}]");
+Console.WriteLine($"[CORS DEBUG] Total Origins Count: {allowedOrigins.Length}");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -162,6 +167,9 @@ if (app.Environment.IsDevelopment())
 
 // Enable CORS with the "AllowAll" policy
 app.UseCors("AllowAll");
+
+// Log CORS middleware application
+Console.WriteLine("[CORS DEBUG] CORS middleware applied with 'AllowAll' policy");
 
 // Add authentication middleware
 app.UseAuthentication();
