@@ -170,7 +170,7 @@ namespace rag_experiment.Controllers
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = isProduction, // Required for SameSite=None in production
+                Secure = true, // Required for SameSite=None in production
                 SameSite = SameSiteMode.None, // Required for cross-origin requests
                 Expires = DateTime.UtcNow.AddDays(7)
             };
@@ -178,7 +178,7 @@ namespace rag_experiment.Controllers
             Response.Cookies.Append("token", jwtToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = isProduction, // Required for SameSite=None in production
+                Secure = true, // Required for SameSite=None in production
                 SameSite = SameSiteMode.None, // Required for cross-origin requests
                 Expires = DateTime.UtcNow.AddMinutes(15) // Match JWT token expiry
             });
