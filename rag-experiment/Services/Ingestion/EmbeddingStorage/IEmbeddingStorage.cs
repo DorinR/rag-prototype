@@ -20,8 +20,9 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="embeddingData">The embedding vector</param>
         /// <param name="documentId">document ID</param>
         /// <param name="userId">user ID</param>
+        /// <param name="conversationId">conversation ID</param>
         /// <param name="documentTitle">document title</param>
-        void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, string documentTitle);
+        void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, int conversationId, string documentTitle);
 
         /// <summary>
         /// Retrieves an embedding by its ID
@@ -53,11 +54,20 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         void DeleteEmbeddingsByDocumentId(string documentId);
 
         /// <summary>
-        /// Finds the most similar embeddings in the database to the query embedding
+        /// Finds the most similar embeddings in the database to the query embedding, scoped to a conversation
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="conversationId">The conversation ID to scope the search to</param>
+        /// <param name="topK">Number of results to return</param>
+        /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
+        List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int conversationId, int topK = 10);
+
+        /// <summary>
+        /// Finds the most similar embeddings in the database to the query embedding across all user's conversations
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
         /// <param name="topK">Number of results to return</param>
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
-        List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int topK = 10);
+        List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsAllConversations(float[] queryEmbedding, int topK = 10);
     }
 }

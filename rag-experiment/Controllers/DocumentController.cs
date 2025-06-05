@@ -28,7 +28,7 @@ namespace rag_experiment.Controllers
         }
 
         [HttpPost("upload")]
-        public async Task<IActionResult> UploadDocument(IFormFile file, [FromForm] string description = "")
+        public async Task<IActionResult> UploadDocument(IFormFile file, [FromForm] int conversationId, [FromForm] string description = "")
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
@@ -36,6 +36,13 @@ namespace rag_experiment.Controllers
             try
             {
                 var userId = _userContext.GetCurrentUserId();
+
+                // Verify conversation exists and belongs to user
+                var conversation = await _dbContext.Conversations
+                    .FirstOrDefaultAsync(c => c.Id == conversationId && c.UserId == userId);
+
+                if (conversation == null)
+                    return NotFound("Conversation not found or you don't have access to it");
 
                 // Create uploads directory if it doesn't exist
                 var uploadsDirectory = Path.Combine(_environment.ContentRootPath, "Uploads");
@@ -61,21 +68,26 @@ namespace rag_experiment.Controllers
                     FileSize = file.Length,
                     FilePath = filePath,
                     Description = description,
-                    UserId = userId
+                    ConversationId = conversationId
                 };
 
                 // Save to database
                 _dbContext.Documents.Add(document);
+
+                // Update conversation's UpdatedAt timestamp
+                conversation.UpdatedAt = DateTime.UtcNow;
+
                 await _dbContext.SaveChangesAsync();
 
                 // Publish event for document processing
-                EventBus.Publish(new DocumentUploadedEvent(document.Id, userId));
+                EventBus.Publish(new DocumentUploadedEvent(document.Id, userId, conversationId));
 
                 return Ok(new
                 {
                     documentId = document.Id,
                     fileName = document.OriginalFileName,
                     fileSize = document.FileSize,
+                    conversationId = conversationId,
                     message = "Document uploaded successfully"
                 });
             }
@@ -85,47 +97,70 @@ namespace rag_experiment.Controllers
             }
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAllDocuments()
+        [HttpGet("conversation/{conversationId}")]
+        public async Task<IActionResult> GetDocumentsByConversation(int conversationId)
         {
-            var userId = _userContext.GetCurrentUserId();
+            try
+            {
+                var userId = _userContext.GetCurrentUserId();
 
-            var documents = await _dbContext.Documents
-                .Where(d => d.UserId == userId)
-                .Select(d => new
-                {
-                    d.Id,
-                    d.OriginalFileName,
-                    d.ContentType,
-                    d.FileSize,
-                    d.UploadedAt,
-                    d.Description
-                })
-                .ToListAsync();
+                // Verify conversation exists and belongs to user
+                var conversationExists = await _dbContext.Conversations
+                    .AnyAsync(c => c.Id == conversationId && c.UserId == userId);
 
-            return Ok(documents);
+                if (!conversationExists)
+                    return NotFound("Conversation not found or you don't have access to it");
+
+                var documents = await _dbContext.Documents
+                    .Where(d => d.ConversationId == conversationId)
+                    .Select(d => new
+                    {
+                        d.Id,
+                        d.OriginalFileName,
+                        d.ContentType,
+                        d.FileSize,
+                        d.UploadedAt,
+                        d.Description
+                    })
+                    .ToListAsync();
+
+                return Ok(documents);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while retrieving documents: {ex.Message}");
+            }
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetDocument(int id)
         {
-            var userId = _userContext.GetCurrentUserId();
-
-            var document = await _dbContext.Documents
-                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
-
-            if (document == null)
-                return NotFound("Document not found");
-
-            return Ok(new
+            try
             {
-                document.Id,
-                document.OriginalFileName,
-                document.ContentType,
-                document.FileSize,
-                document.UploadedAt,
-                document.Description
-            });
+                var userId = _userContext.GetCurrentUserId();
+
+                var document = await _dbContext.Documents
+                    .Include(d => d.Conversation)
+                    .FirstOrDefaultAsync(d => d.Id == id && d.Conversation.UserId == userId);
+
+                if (document == null)
+                    return NotFound("Document not found or you don't have access to it");
+
+                return Ok(new
+                {
+                    document.Id,
+                    document.OriginalFileName,
+                    document.ContentType,
+                    document.FileSize,
+                    document.UploadedAt,
+                    document.Description,
+                    document.ConversationId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while retrieving the document: {ex.Message}");
+            }
         }
 
         [HttpDelete("{id}")]
@@ -135,12 +170,13 @@ namespace rag_experiment.Controllers
             {
                 var userId = _userContext.GetCurrentUserId();
 
-                // Find the document
+                // Find the document with conversation relationship
                 var document = await _dbContext.Documents
-                    .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
+                    .Include(d => d.Conversation)
+                    .FirstOrDefaultAsync(d => d.Id == id && d.Conversation.UserId == userId);
 
                 if (document == null)
-                    return NotFound("Document not found");
+                    return NotFound("Document not found or you don't have access to it");
 
                 // Delete the physical file
                 if (System.IO.File.Exists(document.FilePath))
@@ -150,6 +186,10 @@ namespace rag_experiment.Controllers
 
                 // Delete the document record
                 _dbContext.Documents.Remove(document);
+
+                // Update conversation's UpdatedAt timestamp
+                document.Conversation.UpdatedAt = DateTime.UtcNow;
+
                 await _dbContext.SaveChangesAsync();
 
                 // Publish document deleted event
@@ -160,6 +200,37 @@ namespace rag_experiment.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred while deleting the document: {ex.Message}");
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllDocuments()
+        {
+            try
+            {
+                var userId = _userContext.GetCurrentUserId();
+
+                var documents = await _dbContext.Documents
+                    .Include(d => d.Conversation)
+                    .Where(d => d.Conversation.UserId == userId)
+                    .Select(d => new
+                    {
+                        d.Id,
+                        d.OriginalFileName,
+                        d.ContentType,
+                        d.FileSize,
+                        d.UploadedAt,
+                        d.Description,
+                        d.ConversationId,
+                        ConversationTitle = d.Conversation.Title
+                    })
+                    .ToListAsync();
+
+                return Ok(documents);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while retrieving documents: {ex.Message}");
             }
         }
     }

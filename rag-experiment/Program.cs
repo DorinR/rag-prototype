@@ -8,12 +8,46 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using rag_experiment.Services.Auth;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // Add more detailed model validation
+    options.ModelValidatorProviders.Clear();
+})
+.ConfigureApiBehaviorOptions(options =>
+{
+    // Customize validation error response for better debugging
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning("Model validation failed for {ActionName}", context.ActionDescriptor.DisplayName);
+
+        foreach (var modelError in context.ModelState)
+        {
+            foreach (var error in modelError.Value.Errors)
+            {
+                logger.LogWarning("Validation Error - Field: {Field}, Message: {Message}, Exception: {Exception}",
+                    modelError.Key, error.ErrorMessage, error.Exception?.Message);
+            }
+        }
+
+        return new BadRequestObjectResult(context.ModelState);
+    };
+})
+.AddJsonOptions(options =>
+{
+    // Configure JSON serialization for better enum handling
+    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    options.JsonSerializerOptions.AllowTrailingCommas = true;
+
+    // Add enum converter for better error messages
+    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -146,13 +180,42 @@ builder.Services.AddScoped<ICsvExportService, CsvExportService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Add simple health checks
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
-// Apply any pending migrations
-using (var scope = app.Services.CreateScope())
+// Database initialization - only run if Railway didn't handle migrations
+var skipMigrations = builder.Configuration.GetValue<bool>("RAILWAY_SKIP_MIGRATIONS", false);
+if (!skipMigrations)
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.Migrate();
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+        try
+        {
+            logger.LogInformation("Checking for pending database migrations...");
+            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+
+            if (pendingMigrations.Any())
+            {
+                logger.LogInformation($"Applying {pendingMigrations.Count()} pending migrations: {string.Join(", ", pendingMigrations)}");
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Database migrations completed successfully");
+            }
+            else
+            {
+                logger.LogInformation("Database is up to date");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Database migration failed");
+            throw;
+        }
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -177,12 +240,15 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Add health check endpoint
+app.MapHealthChecks("/health");
+
 // During app startup
 EventBus.Subscribe<DocumentUploadedEvent>(async evt =>
 {
     using var scope = app.Services.CreateScope();
     var ingestionService = scope.ServiceProvider.GetRequiredService<IDocumentIngestionService>();
-    await ingestionService.IngestDocumentAsync(evt.DocumentId_, evt.UserId_);
+    await ingestionService.IngestDocumentAsync(evt.DocumentId_, evt.UserId_, evt.ConversationId_);
 });
 
 EventBus.Subscribe<DocumentDeletedEvent>(evt =>

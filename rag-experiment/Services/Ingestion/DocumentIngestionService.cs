@@ -31,7 +31,7 @@ namespace rag_experiment.Services
             _dbContext = dbContext;
         }
 
-        public async Task<List<DocumentEmbedding>> IngestDocumentAsync(int documentId, int userId)
+        public async Task<List<DocumentEmbedding>> IngestDocumentAsync(int documentId, int userId, int conversationId)
         {
             int maxChunkSize = 1000;
             int overlap = 200;
@@ -83,7 +83,8 @@ namespace rag_experiment.Services
                         { "source_type", "uploaded_document" },
                         { "document_id", document.Id.ToString() },
                         { "document_title", document.OriginalFileName },
-                        { "user_id", userId.ToString() }
+                        { "user_id", userId.ToString() },
+                        { "conversation_id", conversationId.ToString() }
                     }
                 };
 
@@ -95,8 +96,9 @@ namespace rag_experiment.Services
                     text: chunk,
                     embeddingData: embedding,
                     documentId: document.Id.ToString(),
-                    documentTitle: document.OriginalFileName,
-                    userId: userId
+                    userId: userId,
+                    conversationId: conversationId,
+                    documentTitle: document.OriginalFileName
                 );
             }
 

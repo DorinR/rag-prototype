@@ -11,8 +11,8 @@ namespace rag_experiment.Models
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
         public string Description { get; set; }
 
-        // User association
-        public int UserId { get; set; }
-        public User User { get; set; }
+        // Conversation association (instead of direct user association)
+        public int ConversationId { get; set; }
+        public Conversation Conversation { get; set; }
     }
 }

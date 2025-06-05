@@ -8,8 +8,12 @@ namespace rag_experiment.Models
         public string DocumentId { get; set; }
         public string DocumentTitle { get; set; }
 
-        // User association
+        // User association (for access control)
         public int UserId { get; set; }
         public User User { get; set; }
+
+        // Conversation association (for scoping)
+        public int ConversationId { get; set; }
+        public Conversation Conversation { get; set; }
     }
 }

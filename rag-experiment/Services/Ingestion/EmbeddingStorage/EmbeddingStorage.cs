@@ -15,17 +15,16 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             _userContext = userContext;
         }
 
-        public void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, string documentTitle)
+        public void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, int conversationId, string documentTitle)
         {
-            // If userId is not provided, try to get it from the context
-
             var embedding = new Embedding
             {
                 Text = text,
                 EmbeddingData = ConvertToBlob(embeddingData),
                 DocumentId = documentId,
                 DocumentTitle = documentTitle,
-                UserId = userId
+                UserId = userId,
+                ConversationId = conversationId
             };
 
             _context.Embeddings.Add(embedding);
@@ -101,17 +100,50 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         }
 
         /// <summary>
-        /// Finds the most similar embeddings in the database to the query embedding.
+        /// Finds the most similar embeddings in the database to the query embedding, scoped to a conversation.
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="conversationId">The conversation ID to scope the search to</param>
         /// <param name="topK">Number of results to return</param>
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
-        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int topK = 10)
+        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int conversationId, int topK = 10)
         {
             var userId = _userContext.GetCurrentUserId();
             var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
 
-            // Load all embeddings from the database for the current user
+            // Load all embeddings from the database for the current user and conversation
+            var embeddings = _context.Embeddings
+                .Where(e => e.UserId == userId && e.ConversationId == conversationId)
+                .ToList();
+
+            // Calculate similarity for each embedding
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+            }
+
+            // Return top K results, ordered by similarity (highest first)
+            return results
+                .OrderByDescending(r => r.Similarity)
+                .Take(topK)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Finds the most similar embeddings in the database to the query embedding across all user's conversations.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="topK">Number of results to return</param>
+        /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
+        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsAllConversations(float[] queryEmbedding, int topK = 10)
+        {
+            var userId = _userContext.GetCurrentUserId();
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load all embeddings from the database for the current user across all conversations
             var embeddings = _context.Embeddings
                 .Where(e => e.UserId == userId)
                 .ToList();

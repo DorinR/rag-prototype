@@ -51,6 +51,11 @@ namespace rag_experiment.Controllers
                 return BadRequest("Query is required");
             }
 
+            if (request.ConversationId <= 0)
+            {
+                return BadRequest("ConversationId is required");
+            }
+
             try
             {
                 // Pre-process the query
@@ -59,9 +64,67 @@ namespace rag_experiment.Controllers
                 // Generate embedding for the processed query
                 var queryEmbedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
 
-                // Find similar documents
+                // Find similar documents within the specified conversation
                 var limit = request.Limit > 0 ? request.Limit : 10;
-                var similarDocuments = _embeddingStorage.FindSimilarEmbeddings(queryEmbedding, limit);
+                var similarDocuments = _embeddingStorage.FindSimilarEmbeddings(queryEmbedding, request.ConversationId, limit);
+
+                // Format the retrieved passages
+                var retrievedResults = similarDocuments.Select(doc => new
+                {
+                    text = doc.Text,
+                    documentId = doc.DocumentId,
+                    documentTitle = doc.DocumentTitle,
+                    similarity = doc.Similarity
+                }).ToList();
+
+                // Combine the top chunks into a single context string
+                var contextBuilder = new StringBuilder();
+                foreach (var doc in retrievedResults)
+                {
+                    contextBuilder.AppendLine($"--- {doc.documentTitle} ---");
+                    contextBuilder.AppendLine(doc.text);
+                    contextBuilder.AppendLine();
+                }
+                string combinedContext = contextBuilder.ToString();
+
+                // Generate LLM response using the combined context
+                string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
+
+                // Return the formatted response with both retrieved chunks and LLM answer
+                return Ok(new
+                {
+                    originalQuery = request.Query,
+                    processedQuery = processedQuery,
+                    conversationId = request.ConversationId,
+                    llmResponse = llmResponse,
+                    retrievedChunks = retrievedResults
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred processing the query: {ex.Message}");
+            }
+        }
+
+        [HttpPost("query-all-conversations")]
+        public async Task<IActionResult> QueryAllConversations([FromBody] QueryAllConversationsRequest request)
+        {
+            if (string.IsNullOrEmpty(request.Query))
+            {
+                return BadRequest("Query is required");
+            }
+
+            try
+            {
+                // Pre-process the query
+                string processedQuery = await _queryPreprocessor.ProcessQueryAsync(request.Query);
+
+                // Generate embedding for the processed query
+                var queryEmbedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
+
+                // Find similar documents across all user's conversations
+                var limit = request.Limit > 0 ? request.Limit : 10;
+                var similarDocuments = _embeddingStorage.FindSimilarEmbeddingsAllConversations(queryEmbedding, limit);
 
                 // Format the retrieved passages
                 var retrievedResults = similarDocuments.Select(doc => new
@@ -200,6 +263,13 @@ namespace rag_experiment.Controllers
     }
 
     public class QueryRequest
+    {
+        public string Query { get; set; }
+        public int ConversationId { get; set; }
+        public int Limit { get; set; } = 10;
+    }
+
+    public class QueryAllConversationsRequest
     {
         public string Query { get; set; }
         public int Limit { get; set; } = 10;

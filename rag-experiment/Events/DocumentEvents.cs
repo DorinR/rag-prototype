@@ -4,11 +4,13 @@ namespace rag_experiment.Services.Events
     {
         public int DocumentId_ { get; }
         public int UserId_ { get; }
+        public int ConversationId_ { get; }
 
-        public DocumentUploadedEvent(int documentId, int userId)
+        public DocumentUploadedEvent(int documentId, int userId, int conversationId)
         {
             DocumentId_ = documentId;
             UserId_ = userId;
+            ConversationId_ = conversationId;
         }
     }
 

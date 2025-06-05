@@ -19,7 +19,8 @@ namespace rag_experiment.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastLoginAt { get; set; }
 
-        // Navigation property for refresh tokens
+        // Navigation properties
         public List<RefreshToken> RefreshTokens { get; set; } = new();
+        public List<Conversation> Conversations { get; set; } = new();
     }
 }
