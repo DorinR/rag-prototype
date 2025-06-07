@@ -15,11 +15,11 @@ namespace rag_experiment.Migrations
             migrationBuilder.Sql("PRAGMA foreign_keys = OFF;");
 
             // 2. Drop tables in reverse dependency order
-            migrationBuilder.DropTable("Embeddings");    // Child table first
-            migrationBuilder.DropTable("Messages");      // Child table  
-            migrationBuilder.DropTable("Documents");     // Child table
-            migrationBuilder.DropTable("Conversations"); // Parent table
-            migrationBuilder.DropTable("Users");         // Root parent
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Embeddings\";");
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Messages\";");
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Documents\";");
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Conversations\";");
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Users\";");
 
             // 3. Optionally drop migration history to start completely fresh
             // migrationBuilder.DropTable("__EFMigrationsHistory");
