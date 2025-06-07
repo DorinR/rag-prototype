@@ -21,12 +21,10 @@ namespace rag_experiment.Migrations
             migrationBuilder.Sql("DROP TABLE IF EXISTS \"Conversations\";");
             migrationBuilder.Sql("DROP TABLE IF EXISTS \"Users\";");
 
-            // 3. Optionally drop migration history to start completely fresh
-            // migrationBuilder.DropTable("__EFMigrationsHistory");
-
-            // 4. Re-enable foreign key constraints
+            // 3. Re-enable foreign key constraints
             migrationBuilder.Sql("PRAGMA foreign_keys = ON;");
 
+            // Option 2: Modify existing tables approach (current implementation)
             migrationBuilder.DropForeignKey(
                 name: "FK_Documents_Users_UserId",
                 table: "Documents");
