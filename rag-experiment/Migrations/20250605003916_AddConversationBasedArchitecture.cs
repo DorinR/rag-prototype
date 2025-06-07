@@ -15,11 +15,11 @@ namespace rag_experiment.Migrations
             migrationBuilder.Sql("PRAGMA foreign_keys = OFF;");
 
             // 2. Drop tables in reverse dependency order
-            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Embeddings\";");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Messages\";");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Documents\";");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Conversations\";");
-            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Users\";");
+            migrationBuilder.Sql("DELETE FROM \"Embeddings\";");
+            migrationBuilder.Sql("DELETE FROM \"Messages\";");
+            migrationBuilder.Sql("DELETE FROM \"Documents\";");
+            migrationBuilder.Sql("DELETE FROM \"Conversations\";");
+            migrationBuilder.Sql("DELETE FROM \"Users\";");
 
             // 3. Re-enable foreign key constraints
             migrationBuilder.Sql("PRAGMA foreign_keys = ON;");
