@@ -7,6 +7,7 @@ using rag_experiment.Services.Ingestion.VectorStorage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.Mvc;
 using rag_experiment.Services.Auth;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
