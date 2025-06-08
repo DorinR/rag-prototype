@@ -11,7 +11,6 @@ namespace rag_experiment.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Option 2: Modify existing tables approach (current implementation)
             migrationBuilder.DropForeignKey(
                 name: "FK_Documents_Users_UserId",
                 table: "Documents");
