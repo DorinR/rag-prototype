@@ -11,19 +11,6 @@ namespace rag_experiment.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // 1. Disable foreign key constraints (for SQLite)
-            migrationBuilder.Sql("PRAGMA foreign_keys = OFF;");
-
-            // 2. Drop tables in reverse dependency order
-            migrationBuilder.Sql("DELETE FROM \"Embeddings\";");
-            migrationBuilder.Sql("DELETE FROM \"Messages\";");
-            migrationBuilder.Sql("DELETE FROM \"Documents\";");
-            migrationBuilder.Sql("DELETE FROM \"Conversations\";");
-            migrationBuilder.Sql("DELETE FROM \"Users\";");
-
-            // 3. Re-enable foreign key constraints
-            migrationBuilder.Sql("PRAGMA foreign_keys = ON;");
-
             // Option 2: Modify existing tables approach (current implementation)
             migrationBuilder.DropForeignKey(
                 name: "FK_Documents_Users_UserId",
