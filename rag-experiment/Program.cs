@@ -179,7 +179,7 @@ builder.Services.AddScoped<ICsvExportService, CsvExportService>();
 
 // Register AppDbContext with SQLite connection
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add simple health checks
 builder.Services.AddHealthChecks();
