@@ -184,7 +184,29 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 Console.WriteLine($"[DB DEBUG] Environment: {builder.Environment.EnvironmentName}");
 if (!string.IsNullOrEmpty(connectionString))
 {
-    Console.WriteLine($"[DB DEBUG] Connection String: {connectionString}");
+    Console.WriteLine($"[DB DEBUG] Original Connection String: {connectionString}");
+
+    // Convert PostgreSQL URI format to key-value format if needed
+    if (connectionString.StartsWith("postgresql://") || connectionString.StartsWith("postgres://"))
+    {
+        try
+        {
+            var uri = new Uri(connectionString);
+            var host = uri.Host;
+            var port = uri.Port;
+            var database = uri.AbsolutePath.TrimStart('/');
+            var userInfo = uri.UserInfo.Split(':');
+            var username = userInfo[0];
+            var password = userInfo.Length > 1 ? userInfo[1] : "";
+
+            connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+            Console.WriteLine($"[DB DEBUG] Converted Connection String: {connectionString}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DB DEBUG] Failed to convert URI connection string: {ex.Message}");
+        }
+    }
 }
 else
 {
