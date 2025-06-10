@@ -177,9 +177,22 @@ builder.Services.AddScoped<IEvaluationService, EvaluationService>();
 builder.Services.AddScoped<IExperimentService, ExperimentService>();
 builder.Services.AddScoped<ICsvExportService, CsvExportService>();
 
-// Register AppDbContext with SQLite connection
+// Register AppDbContext with PostgreSQL connection
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+// Debug logging for connection string
+Console.WriteLine($"[DB DEBUG] Environment: {builder.Environment.EnvironmentName}");
+if (!string.IsNullOrEmpty(connectionString))
+{
+    Console.WriteLine($"[DB DEBUG] Connection String: {connectionString}");
+}
+else
+{
+    Console.WriteLine("[DB DEBUG] Warning: No connection string configured!");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 // Add simple health checks
 builder.Services.AddHealthChecks();
