@@ -5,6 +5,8 @@ using rag_experiment.Models;
 using rag_experiment.Services;
 using rag_experiment.Services.Events;
 using rag_experiment.Services.Auth;
+using Hangfire;
+using rag_experiment.Services.BackgroundJobs;
 
 namespace rag_experiment.Controllers
 {
@@ -16,15 +18,18 @@ namespace rag_experiment.Controllers
         private readonly AppDbContext _dbContext;
         private readonly IWebHostEnvironment _environment;
         private readonly IUserContext _userContext;
+        private readonly IConfiguration _configuration;
 
         public DocumentController(
             AppDbContext dbContext,
             IWebHostEnvironment environment,
-            IUserContext userContext)
+            IUserContext userContext,
+            IConfiguration configuration)
         {
             _dbContext = dbContext;
             _environment = environment;
             _userContext = userContext;
+            _configuration = configuration;
         }
 
         [HttpPost("upload")]
@@ -45,7 +50,8 @@ namespace rag_experiment.Controllers
                     return NotFound("Conversation not found or you don't have access to it");
 
                 // Create uploads directory if it doesn't exist
-                var uploadsDirectory = Path.Combine(_environment.ContentRootPath, "Uploads");
+                var uploadPath = _configuration["DocumentStorage:UploadPath"] ?? "Uploads";
+                var uploadsDirectory = Path.Combine(_environment.ContentRootPath, uploadPath);
                 if (!Directory.Exists(uploadsDirectory))
                     Directory.CreateDirectory(uploadsDirectory);
 
@@ -79,8 +85,9 @@ namespace rag_experiment.Controllers
 
                 await _dbContext.SaveChangesAsync();
 
-                // Publish event for document processing
-                EventBus.Publish(new DocumentUploadedEvent(document.Id, userId, conversationId));
+                // Enqueue background job for document processing
+                var jobId = BackgroundJob.Enqueue<DocumentProcessingJobService>(
+                    service => service.ProcessDocumentAsync(document.Id, userId, conversationId));
 
                 return Ok(new
                 {
@@ -88,7 +95,8 @@ namespace rag_experiment.Controllers
                     fileName = document.OriginalFileName,
                     fileSize = document.FileSize,
                     conversationId = conversationId,
-                    message = "Document uploaded successfully"
+                    jobId = jobId,
+                    message = "Document uploaded successfully and processing job queued"
                 });
             }
             catch (Exception ex)

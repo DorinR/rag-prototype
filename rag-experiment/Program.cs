@@ -10,6 +10,9 @@ using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using rag_experiment.Services.Auth;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Hangfire;
+using Hangfire.PostgreSql;
+using rag_experiment.Services.BackgroundJobs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +52,7 @@ builder.Services.AddControllers(options =>
     // Add enum converter for better error messages
     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
 });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -177,6 +181,19 @@ builder.Services.AddScoped<IEvaluationService, EvaluationService>();
 builder.Services.AddScoped<IExperimentService, ExperimentService>();
 builder.Services.AddScoped<ICsvExportService, CsvExportService>();
 
+// Register Hangfire services
+builder.Services.AddScoped<DocumentProcessingJobService>();
+
+// Configure Hangfire with PostgreSQL storage
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+
+// Add Hangfire server
+builder.Services.AddHangfireServer();
+
 // Register AppDbContext with PostgreSQL connection
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -215,6 +232,9 @@ else
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+
+
 
 // Add simple health checks
 builder.Services.AddHealthChecks();
@@ -274,19 +294,19 @@ Console.WriteLine("[CORS DEBUG] CORS middleware applied with 'AllowAll' policy")
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Add Hangfire Dashboard (protected by authentication)
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
+
 app.MapControllers();
 
 // Add health check endpoint
 app.MapHealthChecks("/health");
 
-// During app startup
-EventBus.Subscribe<DocumentUploadedEvent>(async evt =>
-{
-    using var scope = app.Services.CreateScope();
-    var ingestionService = scope.ServiceProvider.GetRequiredService<IDocumentIngestionService>();
-    await ingestionService.IngestDocumentAsync(evt.DocumentId_, evt.UserId_, evt.ConversationId_);
-});
-
+// Note: Document processing is now handled by Hangfire background jobs
+// Document deletion still uses EventBus for immediate cleanup
 EventBus.Subscribe<DocumentDeletedEvent>(evt =>
 {
     using var scope = app.Services.CreateScope();
