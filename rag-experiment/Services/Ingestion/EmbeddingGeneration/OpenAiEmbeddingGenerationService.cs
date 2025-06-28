@@ -1,29 +1,27 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
+using rag_experiment.Models;
 
 namespace rag_experiment.Services
 {
     public class OpenAiEmbeddingGenerationService : IEmbeddingGenerationService
     {
         private readonly HttpClient _httpClient;
-        private readonly string _apiKey;
-        private readonly bool _enableRateLimiting;
+        private readonly OpenAISettings _settings;
         private const int MaxBatchSize = 100;
         private const int TokensPerMinuteLimit = 150000;
         private static readonly SemaphoreSlim _rateLimitSemaphore = new(1, 1);
         private static DateTime _lastRequestTime = DateTime.MinValue;
         private static int _tokensUsedInLastMinute = 0;
 
-        public OpenAiEmbeddingGenerationService(IConfiguration configuration, HttpClient httpClient)
+        public OpenAiEmbeddingGenerationService(
+            IHttpClientFactory httpClientFactory,
+            IOptions<OpenAISettings> settings)
         {
-            _apiKey = configuration["OpenAI:ApiKey"]
-                ?? throw new ArgumentException("OpenAI API key not found in configuration");
-            _enableRateLimiting = configuration.GetValue<bool>("OpenAI:EnableRateLimiting", false);
-
-            _httpClient = httpClient;
-            _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
+            _settings = settings.Value;
+            _httpClient = httpClientFactory.CreateClient("OpenAI");
         }
 
         public async Task<Dictionary<string, float[]>> GenerateEmbeddingsAsync(IEnumerable<string> chunks)
@@ -99,7 +97,7 @@ namespace rag_experiment.Services
 
         private async Task WaitForRateLimit(List<string> batch)
         {
-            if (!_enableRateLimiting) return;
+            if (!_settings.EnableRateLimiting) return;
 
             await _rateLimitSemaphore.WaitAsync();
             try
@@ -136,7 +134,7 @@ namespace rag_experiment.Services
 
         private async Task UpdateRateLimitStats(int tokensUsed)
         {
-            if (!_enableRateLimiting) return;
+            if (!_settings.EnableRateLimiting) return;
 
             await _rateLimitSemaphore.WaitAsync();
             try

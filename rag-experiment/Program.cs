@@ -13,6 +13,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Hangfire;
 using Hangfire.PostgreSql;
 using rag_experiment.Services.BackgroundJobs;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -153,6 +154,18 @@ builder.Services.AddCors(options =>
 // Configure RAG settings from appsettings.json
 builder.Services.Configure<RagSettings>(
     builder.Configuration.GetSection("RagConfiguration"));
+
+// Configure OpenAI settings
+builder.Services.Configure<OpenAISettings>(
+    builder.Configuration.GetSection(OpenAISettings.SectionName));
+
+// Configure OpenAI HttpClient
+builder.Services.AddHttpClient("OpenAI", (serviceProvider, client) =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<OpenAISettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {settings.ApiKey}");
+});
 
 // Register Markdown table service with configurable file path
 var markdownTablePath = builder.Configuration["MarkdownTablePath"] ?? "experiment_results.md";

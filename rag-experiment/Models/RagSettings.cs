@@ -32,4 +32,13 @@ namespace rag_experiment.Models
     {
         public int DefaultTopK { get; set; } = 10;
     }
-} 
+
+    public class OpenAISettings
+    {
+        public const string SectionName = "OpenAI";
+
+        public string ApiKey { get; set; } = string.Empty;
+        public bool EnableRateLimiting { get; set; }
+        public string BaseUrl { get; set; } = "https://api.openai.com/v1/";
+    }
+}
