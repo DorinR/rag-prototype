@@ -194,18 +194,7 @@ builder.Services.AddScoped<IEvaluationService, EvaluationService>();
 builder.Services.AddScoped<IExperimentService, ExperimentService>();
 builder.Services.AddScoped<ICsvExportService, CsvExportService>();
 
-// Register Hangfire services
-builder.Services.AddScoped<DocumentProcessingJobService>();
 
-// Configure Hangfire with PostgreSQL storage
-builder.Services.AddHangfire(configuration => configuration
-    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
-
-// Add Hangfire server
-builder.Services.AddHangfireServer();
 
 // Register AppDbContext with PostgreSQL connection
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -246,7 +235,18 @@ else
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+// Register Hangfire services
+builder.Services.AddScoped<DocumentProcessingJobService>();
 
+// Configure Hangfire with PostgreSQL storage
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
+
+// Add Hangfire server
+builder.Services.AddHangfireServer();
 
 
 // Add simple health checks
