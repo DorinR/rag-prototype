@@ -10,11 +10,10 @@ namespace rag_experiment.Services
     {
         private readonly HttpClient _httpClient;
         private readonly OpenAISettings _settings;
-        private const int MaxBatchSize = 100;
-        private const int TokensPerMinuteLimit = 150000;
         private static readonly SemaphoreSlim _rateLimitSemaphore = new(1, 1);
         private static DateTime _lastRequestTime = DateTime.MinValue;
         private static int _tokensUsedInLastMinute = 0;
+        private static int _requestsInLastMinute = 0;
 
         public OpenAiEmbeddingGenerationService(
             IHttpClientFactory httpClientFactory,
@@ -30,14 +29,14 @@ namespace rag_experiment.Services
             var chunksList = chunks.ToList();
 
             // Process in batches
-            for (var i = 0; i < chunksList.Count; i += MaxBatchSize)
+            for (var i = 0; i < chunksList.Count; i += _settings.MaxBatchSize)
             {
-                var batch = chunksList.Skip(i).Take(MaxBatchSize).ToList();
+                var batch = chunksList.Skip(i).Take(_settings.MaxBatchSize).ToList();
                 await WaitForRateLimit(batch);
 
                 var request = new
                 {
-                    model = "text-embedding-3-small",
+                    model = _settings.ModelName,
                     input = batch
                 };
 
@@ -48,7 +47,6 @@ namespace rag_experiment.Services
 
                 response.EnsureSuccessStatusCode();
                 var responseContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Raw JSON Response: {responseContent}");
                 var embeddingResponse = JsonSerializer.Deserialize<EmbeddingResponse>(responseContent);
 
                 if (embeddingResponse?.Data == null || embeddingResponse.Usage == null)
@@ -73,7 +71,7 @@ namespace rag_experiment.Services
         {
             var request = new
             {
-                model = "text-embedding-3-small",
+                model = _settings.ModelName,
                 input = new[] { text }
             };
 
@@ -84,7 +82,6 @@ namespace rag_experiment.Services
 
             response.EnsureSuccessStatusCode();
             var responseContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"Raw JSON Response: {responseContent}");
             var embeddingResponse = JsonSerializer.Deserialize<EmbeddingResponse>(responseContent);
 
             if (embeddingResponse?.Data == null || embeddingResponse.Usage == null)
@@ -115,14 +112,15 @@ namespace rag_experiment.Services
                 var estimatedTokens = batch.Sum(text => text.Length / 4);
 
                 // If this batch would exceed our limit, wait until the minute is up
-                if (_tokensUsedInLastMinute + estimatedTokens > TokensPerMinuteLimit)
+                if (_tokensUsedInLastMinute + estimatedTokens > _settings.TpmLimit || _requestsInLastMinute > _settings.RpmLimit)
                 {
                     var timeToWait = 60 - (now - _lastRequestTime).TotalSeconds;
                     if (timeToWait > 0)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(timeToWait));
-                        _tokensUsedInLastMinute = 0;
                         _lastRequestTime = DateTime.UtcNow;
+                        _tokensUsedInLastMinute = 0;
+                        _requestsInLastMinute = 0;
                     }
                 }
             }
@@ -143,9 +141,11 @@ namespace rag_experiment.Services
                 if ((now - _lastRequestTime).TotalMinutes >= 1)
                 {
                     _tokensUsedInLastMinute = 0;
+                    _requestsInLastMinute = 0;
                     _lastRequestTime = now;
                 }
                 _tokensUsedInLastMinute += tokensUsed;
+                _requestsInLastMinute++;
             }
             finally
             {

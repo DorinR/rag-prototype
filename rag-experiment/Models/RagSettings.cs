@@ -25,7 +25,7 @@ namespace rag_experiment.Models
     public class ChunkingSettings
     {
         public int ChunkSize { get; set; } = 1000;
-        public int ChunkOverlap { get; set; } = 100;
+        public int ChunkOverlap { get; set; } = 200;
     }
 
     public class RetrievalSettings
@@ -36,9 +36,12 @@ namespace rag_experiment.Models
     public class OpenAISettings
     {
         public const string SectionName = "OpenAI";
-
         public string ApiKey { get; set; } = string.Empty;
-        public bool EnableRateLimiting { get; set; }
+        public bool EnableRateLimiting { get; set; } = true;
         public string BaseUrl { get; set; } = "https://api.openai.com/v1/";
+        public string ModelName { get; set; } = "text-embedding-3-small";
+        public int RpmLimit { get; set; } = 3000;
+        public int TpmLimit { get; set; } = 1000000;
+        public int MaxBatchSize { get; set; } = 30;
     }
 }

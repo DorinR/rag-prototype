@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using rag_experiment.Models;
 using rag_experiment.Services.Ingestion.VectorStorage;
 
 namespace rag_experiment.Services
@@ -5,7 +7,7 @@ namespace rag_experiment.Services
 
     public class DocumentIngestionService : IDocumentIngestionService
     {
-        private readonly IObsidianVaultReader _vaultReader;
+        private readonly ChunkingSettings _textChunkingSettings;
         private readonly IPdfDocumentReader _pdfDocumentReader;
         private readonly ITextProcessor _textProcessor;
         private readonly ITextChunker _textChunker;
@@ -14,7 +16,7 @@ namespace rag_experiment.Services
         private readonly AppDbContext _dbContext;
 
         public DocumentIngestionService(
-            IObsidianVaultReader vaultReader,
+            IOptions<ChunkingSettings> textChunkingSettings,
             IPdfDocumentReader pdfDocumentReader,
             ITextProcessor textProcessor,
             ITextChunker textChunker,
@@ -22,7 +24,7 @@ namespace rag_experiment.Services
             EmbeddingStorage embeddingStorageStorage,
             AppDbContext dbContext)
         {
-            _vaultReader = vaultReader;
+            _textChunkingSettings = textChunkingSettings.Value;
             _pdfDocumentReader = pdfDocumentReader;
             _textProcessor = textProcessor;
             _textChunker = textChunker;
@@ -33,9 +35,8 @@ namespace rag_experiment.Services
 
         public async Task<List<DocumentEmbedding>> IngestDocumentAsync(int documentId, int userId, int conversationId)
         {
-            int maxChunkSize = 1000;
-            int overlap = 200;
-
+            int maxChunkSize = _textChunkingSettings.ChunkSize;
+            int overlap = _textChunkingSettings.ChunkOverlap;
 
             var document = await _dbContext.Documents.FindAsync(documentId);
             if (document == null)

@@ -233,7 +233,18 @@ else
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(connectionString);
+
+    // Configure EF Core logging based on configuration
+    var loggingEnabled = builder.Configuration.GetValue<bool>("Logging:EntityFramework:Enabled", false);
+    if (loggingEnabled)
+    {
+        options.LogTo(Console.WriteLine)
+               .EnableSensitiveDataLogging()
+               .EnableDetailedErrors();
+    }
+});
 
 // Register Hangfire services
 builder.Services.AddScoped<DocumentProcessingJobService>();

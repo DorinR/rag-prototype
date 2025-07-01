@@ -19,7 +19,7 @@ namespace rag_experiment.Services
                 {
                     // Add the current chunk to our list of chunks
                     chunks.Add(string.Join(" ", currentChunk));
-                    
+
                     // Start a new chunk with overlap
                     currentChunk = GetOverlappingContent(currentChunk, overlap);
                     currentLength = currentChunk.Sum(s => s.Length + 1); // +1 for space
@@ -32,7 +32,9 @@ namespace rag_experiment.Services
             // Add the last chunk if there's anything left
             if (currentChunk.Any())
             {
-                chunks.Add(string.Join(" ", currentChunk));
+                var chunk = string.Join(" ", currentChunk);
+                Console.WriteLine($"Chunk characters: {chunk.Length}");
+                chunks.Add(chunk);
             }
 
             return chunks;
@@ -66,4 +68,4 @@ namespace rag_experiment.Services
             return overlappingContent;
         }
     }
-} 
+}
