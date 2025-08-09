@@ -28,7 +28,7 @@ namespace rag_experiment.Services.BackgroundJobs
             _embeddingRepository = embeddingRepository;
         }
 
-        public async Task StartProcessing(string documentId, string filePath)
+        public async Task StartProcessing(string documentId, string filePath, string UserId, string ConversationId)
         {
             var docId = int.Parse(documentId);
 
@@ -37,7 +37,9 @@ namespace rag_experiment.Services.BackgroundJobs
             {
                 DocumentId = docId,
                 FilePath = filePath,
-                Status = ProcessingStatus.Pending
+                Status = ProcessingStatus.Pending,
+                UserId = UserId,
+                ConversationId = ConversationId
             };
             await _stateRepo.SaveStateAsync(state);
 
@@ -132,8 +134,8 @@ namespace rag_experiment.Services.BackgroundJobs
                         text: state.Chunks[i],
                         embeddingData: state.Embeddings[i],
                         documentId: documentId.ToString(),
-                        userId: 1, // TODO: Pass the actual user ID from the processing state
-                        conversationId: 1, // TODO: Pass the actual conversation ID from the processing state
+                        userId: int.Parse(state.UserId),
+                        conversationId: int.Parse(state.ConversationId),
                         documentTitle: Path.GetFileName(state.FilePath)
                     );
                 }

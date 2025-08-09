@@ -10,6 +10,8 @@ namespace rag_experiment.Models
         public ProcessingStatus Status { get; set; }
         public string? JobId { get; set; }
         public string? ErrorMessage { get; set; }
+        public string? UserId { get; set; }
+        public string? ConversationId { get; set; }
     }
 
     public enum ProcessingStatus

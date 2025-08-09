@@ -87,7 +87,9 @@ namespace rag_experiment.Controllers
 
                 // Enqueue background job for document processing
                 var jobId = BackgroundJob.Enqueue<DocumentProcessingJobService>(
-                    service => service.StartProcessing(document.Id.ToString(), document.FilePath));
+                    service => service.StartProcessing(document.Id.ToString(), document.FilePath, userId.ToString(),
+                        conversationId.ToString()
+                    ));
 
                 return Ok(new
                 {
