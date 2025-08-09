@@ -11,7 +11,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         public required Dictionary<string, string> Metadata { get; init; }
     }
 
-    public interface IEmbeddingStorage
+    public interface IEmbeddingRepository
     {
         /// <summary>
         /// Adds a new embedding to the database

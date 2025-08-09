@@ -4,12 +4,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace rag_experiment.Services.Ingestion.VectorStorage
 {
-    public class EmbeddingStorage : IEmbeddingStorage
+    public class EmbeddingRepository : IEmbeddingRepository
     {
         private readonly AppDbContext _context;
         private readonly IUserContext _userContext;
 
-        public EmbeddingStorage(AppDbContext context, IUserContext userContext)
+        public EmbeddingRepository(AppDbContext context, IUserContext userContext)
         {
             _context = context;
             _userContext = userContext;

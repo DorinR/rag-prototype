@@ -5,8 +5,8 @@ using rag_experiment.Models;
 using rag_experiment.Services;
 using rag_experiment.Services.Events;
 using rag_experiment.Services.Auth;
-using Hangfire;
 using rag_experiment.Services.BackgroundJobs;
+using Hangfire;
 
 namespace rag_experiment.Controllers
 {
@@ -87,7 +87,7 @@ namespace rag_experiment.Controllers
 
                 // Enqueue background job for document processing
                 var jobId = BackgroundJob.Enqueue<DocumentProcessingJobService>(
-                    service => service.ProcessDocumentAsync(document.Id, userId, conversationId));
+                    service => service.StartProcessing(document.Id.ToString(), document.FilePath));
 
                 return Ok(new
                 {

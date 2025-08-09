@@ -11,16 +11,16 @@ namespace rag_experiment.Services
         private readonly string _relFilePath = Path.Combine("Test Data", "cisi_evaluation", "CISI.REL");
         private readonly IEmbeddingGenerationService _embeddingGenerationService;
         private readonly IQueryPreprocessor _queryPreprocessor;
-        private readonly EmbeddingStorage _dbEmbeddingStorage;
+        private readonly EmbeddingRepository _dbEmbeddingRepository;
 
         public EvaluationService(
             IEmbeddingGenerationService embeddingGenerationService,
             IQueryPreprocessor queryPreprocessor,
-            EmbeddingStorage dbEmbeddingStorage)
+            EmbeddingRepository dbEmbeddingRepository)
         {
             _embeddingGenerationService = embeddingGenerationService;
             _queryPreprocessor = queryPreprocessor;
-            _dbEmbeddingStorage = dbEmbeddingStorage;
+            _dbEmbeddingRepository = dbEmbeddingRepository;
         }
 
         public async Task<Dictionary<int, string>> ReadQueriesAsync()

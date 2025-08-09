@@ -12,7 +12,7 @@ namespace rag_experiment.Controllers
     public class RagController : ControllerBase
     {
         private readonly IDocumentIngestionService _ingestionService;
-        private readonly EmbeddingStorage _embeddingStorage;
+        private readonly EmbeddingRepository _embeddingRepository;
         private readonly IEmbeddingGenerationService _openAiEmbeddingGenerationService;
         private readonly IQueryPreprocessor _queryPreprocessor;
         private readonly IEvaluationService _evaluationService;
@@ -23,7 +23,7 @@ namespace rag_experiment.Controllers
 
         public RagController(
             IDocumentIngestionService ingestionService,
-            EmbeddingStorage embeddingStorage,
+            EmbeddingRepository embeddingRepository,
             IEmbeddingGenerationService openAiEmbeddingGenerationService,
             IQueryPreprocessor queryPreprocessor,
             IEvaluationService evaluationService,
@@ -33,7 +33,7 @@ namespace rag_experiment.Controllers
             ILlmService llmService)
         {
             _ingestionService = ingestionService;
-            _embeddingStorage = embeddingStorage;
+            _embeddingRepository = embeddingRepository;
             _openAiEmbeddingGenerationService = openAiEmbeddingGenerationService;
             _queryPreprocessor = queryPreprocessor;
             _evaluationService = evaluationService;
@@ -66,7 +66,7 @@ namespace rag_experiment.Controllers
 
                 // Find similar documents within the specified conversation
                 var limit = request.Limit > 0 ? request.Limit : 10;
-                var similarDocuments = _embeddingStorage.FindSimilarEmbeddings(queryEmbedding, request.ConversationId, limit);
+                var similarDocuments = _embeddingRepository.FindSimilarEmbeddings(queryEmbedding, request.ConversationId, limit);
 
                 // Format the retrieved passages
                 var retrievedResults = similarDocuments.Select(doc => new
@@ -124,7 +124,7 @@ namespace rag_experiment.Controllers
 
                 // Find similar documents across all user's conversations
                 var limit = request.Limit > 0 ? request.Limit : 10;
-                var similarDocuments = _embeddingStorage.FindSimilarEmbeddingsAllConversations(queryEmbedding, limit);
+                var similarDocuments = _embeddingRepository.FindSimilarEmbeddingsAllConversations(queryEmbedding, limit);
 
                 // Format the retrieved passages
                 var retrievedResults = similarDocuments.Select(doc => new

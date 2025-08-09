@@ -33,6 +33,13 @@ yarn-error.log*
 *.swo
 *~
 
+# Development helper files (uncomment to exclude from version control)
+# run-dev.sh
+# run-prod.sh
+# run-dev.bat
+# run-prod.bat
+# CURSOR_DEVELOPMENT.md
+
 # OS generated files
 .DS_Store
 .DS_Store?

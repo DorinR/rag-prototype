@@ -14,6 +14,8 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using rag_experiment.Services.BackgroundJobs;
 using Microsoft.Extensions.Options;
+using rag_experiment.Repositories;
+using rag_experiment.Services.Ingestion.TextExtraction;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -182,17 +184,19 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserContext, UserContext>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
-builder.Services.AddScoped<IPdfDocumentReader, PdfDocumentReader>();
+builder.Services.AddScoped<ITextExtractor, PdfDocumentTextExtractor>();
 builder.Services.AddScoped<ITextProcessor, TextProcessor>();
 builder.Services.AddScoped<ITextChunker, TextChunker>();
 builder.Services.AddScoped<IEmbeddingGenerationService, OpenAiEmbeddingGenerationService>();
 builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
-builder.Services.AddScoped<EmbeddingStorage>();
+builder.Services.AddScoped<EmbeddingRepository>();
 builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
 builder.Services.AddScoped<ILlmService, OpenAILlmService>();
 builder.Services.AddScoped<IEvaluationService, EvaluationService>();
 builder.Services.AddScoped<IExperimentService, ExperimentService>();
 builder.Services.AddScoped<ICsvExportService, CsvExportService>();
+builder.Services.AddSingleton<IDocumentProcessingStateRepository, InMemoryDocumentProcessingStateRepository>();
+builder.Services.AddScoped<IEmbeddingRepository, EmbeddingRepository>();
 
 
 
@@ -334,7 +338,7 @@ app.MapHealthChecks("/health");
 EventBus.Subscribe<DocumentDeletedEvent>(evt =>
 {
     using var scope = app.Services.CreateScope();
-    var embeddingStorageService = scope.ServiceProvider.GetRequiredService<EmbeddingStorage>();
+    var embeddingStorageService = scope.ServiceProvider.GetRequiredService<EmbeddingRepository>();
     embeddingStorageService.DeleteEmbeddingsByDocumentId(evt.DocumentId_.ToString());
 });
 

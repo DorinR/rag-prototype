@@ -2,21 +2,27 @@ using System.Text;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
+using rag_experiment.Services.Ingestion.TextExtraction;
 
 namespace rag_experiment.Services
 {
-    public interface IPdfDocumentReader
+    public class PdfDocumentTextExtractor : ITextExtractor
     {
-        /// <summary>
-        /// Reads all PDF files from the specified directory
-        /// </summary>
-        /// <param name="directoryPath">Path to the directory containing PDF files</param>
-        /// <returns>Dictionary with file paths as keys and their extracted text content as values</returns>
-        Task<Dictionary<string, string>> ReadPdfFilesAsync(string directoryPath);
-    }
-    
-    public class PdfDocumentReader : IPdfDocumentReader
-    {
+        /// <inheritdoc />
+        public async Task<string> ExtractTextAsync(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("File path cannot be null or empty.", nameof(filePath));
+                
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException("The specified file was not found.", filePath);
+                
+            if (!filePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("The specified file is not a PDF document.", nameof(filePath));
+                
+            return await ExtractTextFromPdfAsync(filePath);
+        }
+
         public async Task<Dictionary<string, string>> ReadPdfFilesAsync(string directoryPath)
         {
             if (!Directory.Exists(directoryPath))

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using rag_experiment.Models;
+using rag_experiment.Services.Ingestion.TextExtraction;
 using rag_experiment.Services.Ingestion.VectorStorage;
 
 namespace rag_experiment.Services
@@ -8,28 +9,28 @@ namespace rag_experiment.Services
     public class DocumentIngestionService : IDocumentIngestionService
     {
         private readonly ChunkingSettings _textChunkingSettings;
-        private readonly IPdfDocumentReader _pdfDocumentReader;
+        private readonly ITextExtractor _textExtractor;
         private readonly ITextProcessor _textProcessor;
         private readonly ITextChunker _textChunker;
         private readonly IEmbeddingGenerationService _embeddingGenerationService;
-        private readonly EmbeddingStorage _embeddingStorageStorage;
+        private readonly EmbeddingRepository _embeddingRepositoryRepository;
         private readonly AppDbContext _dbContext;
 
         public DocumentIngestionService(
             IOptions<ChunkingSettings> textChunkingSettings,
-            IPdfDocumentReader pdfDocumentReader,
+            ITextExtractor textExtractor,
             ITextProcessor textProcessor,
             ITextChunker textChunker,
             IEmbeddingGenerationService embeddingGenerationService,
-            EmbeddingStorage embeddingStorageStorage,
+            EmbeddingRepository embeddingRepositoryRepository,
             AppDbContext dbContext)
         {
             _textChunkingSettings = textChunkingSettings.Value;
-            _pdfDocumentReader = pdfDocumentReader;
+            _textExtractor = textExtractor;
             _textProcessor = textProcessor;
             _textChunker = textChunker;
             _embeddingGenerationService = embeddingGenerationService;
-            _embeddingStorageStorage = embeddingStorageStorage;
+            _embeddingRepositoryRepository = embeddingRepositoryRepository;
             _dbContext = dbContext;
         }
 
@@ -48,8 +49,8 @@ namespace rag_experiment.Services
             string text;
             if (document.ContentType == "application/pdf")
             {
-                var pdfContents = await _pdfDocumentReader.ReadPdfFilesAsync(Path.GetDirectoryName(document.FilePath));
-                text = pdfContents[document.FilePath];
+                var pdfContents = await _textExtractor.ExtractTextAsync(Path.GetDirectoryName(document.FilePath));
+                text = pdfContents;
             }
             else
             {
@@ -65,7 +66,7 @@ namespace rag_experiment.Services
             // Generate embeddings for each chunk
             var embeddings = await _embeddingGenerationService.GenerateEmbeddingsAsync(chunks);
 
-            // Create DocumentEmbedding objects and store them
+            // Persist the embeddings
             var result = new List<DocumentEmbedding>();
             for (var i = 0; i < chunks.Count; i++)
             {
@@ -93,7 +94,7 @@ namespace rag_experiment.Services
                 result.Add(documentEmbedding);
 
                 // Store in the vector database using the embedding service
-                _embeddingStorageStorage.AddEmbedding(
+                _embeddingRepositoryRepository.AddEmbedding(
                     text: chunk,
                     embeddingData: embedding,
                     documentId: document.Id.ToString(),
