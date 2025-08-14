@@ -1,6 +1,52 @@
 namespace rag_experiment.Services.Ingestion.VectorStorage
 {
     /// <summary>
+    /// Represents a single embedding upsert item with stable identity for idempotent writes.
+    /// </summary>
+    public record EmbeddingUpsertItem
+    {
+        /// <summary>
+        /// The exact chunk text. Keep as-is (no lowercasing/trim) to match computed hash.
+        /// </summary>
+        public required string Text { get; init; }
+
+        /// <summary>
+        /// The embedding vector for the chunk.
+        /// </summary>
+        public required float[] Vector { get; init; }
+
+        /// <summary>
+        /// The owning user id (multi-tenant scoping).
+        /// </summary>
+        public required int UserId { get; init; }
+
+        /// <summary>
+        /// The conversation id (additional scope boundary).
+        /// </summary>
+        public required int ConversationId { get; init; }
+
+        /// <summary>
+        /// Logical document id for grouping embeddings by source document.
+        /// </summary>
+        public required string DocumentId { get; init; }
+
+        /// <summary>
+        /// Stable position of the chunk within the document. Used for uniqueness.
+        /// </summary>
+        public required int ChunkIndex { get; init; }
+
+        /// <summary>
+        /// SHA-256 hash of the canonicalized chunk text. Used for change detection.
+        /// </summary>
+        public required byte[] ChunkHash { get; init; }
+
+        /// <summary>
+        /// Optional document title for display/query convenience.
+        /// </summary>
+        public string? DocumentTitle { get; init; }
+    }
+
+    /// <summary>
     /// Represents a document with its embedding and metadata
     /// </summary>
     public record DocumentEmbedding
@@ -69,5 +115,15 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="topK">Number of results to return</param>
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
         List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsAllConversations(float[] queryEmbedding, int topK = 10);
+
+        /// <summary>
+        /// Upserts a batch of embeddings using a stable uniqueness key such as (UserId, ConversationId, DocumentId, ChunkIndex).
+        /// Implementations should insert missing rows and update existing rows only when content (e.g., ChunkHash or Vector) changed.
+        /// The operation SHOULD be executed in as few database roundtrips as possible (ideally 1 transaction/batch).
+        /// </summary>
+        /// <param name="items">Batch of embedding items to upsert.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Task that completes when the batch upsert finishes.</returns>
+        Task UpsertEmbeddingsAsync(IEnumerable<EmbeddingUpsertItem> items, CancellationToken cancellationToken = default);
     }
 }

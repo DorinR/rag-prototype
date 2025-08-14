@@ -86,6 +86,9 @@ namespace rag_experiment.Services
                 entity.Property(e => e.EmbeddingData).IsRequired();
                 entity.Property(e => e.DocumentId).IsRequired();
                 entity.Property(e => e.DocumentTitle).IsRequired();
+                entity.Property(e => e.ChunkIndex).IsRequired();
+                entity.Property(e => e.ChunkHash).IsRequired();
+                entity.HasIndex(e => new { e.UserId, e.ConversationId, e.DocumentId, e.ChunkIndex }).IsUnique();
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)

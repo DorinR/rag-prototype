@@ -3,6 +3,8 @@ using rag_experiment.Models;
 using rag_experiment.Repositories;
 using rag_experiment.Services.Ingestion.TextExtraction;
 using rag_experiment.Services.Ingestion.VectorStorage;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace rag_experiment.Services.BackgroundJobs
 {
@@ -43,7 +45,7 @@ namespace rag_experiment.Services.BackgroundJobs
             };
             await _stateRepo.SaveStateAsync(state);
 
-            // Set up the entire job chain upfront using the driver method pattern
+            // Set up the entire job chain
             var job1 = BackgroundJob.Enqueue<DocumentProcessingJobService>(
                 x => x.ExtractText(docId));
 
@@ -122,23 +124,32 @@ namespace rag_experiment.Services.BackgroundJobs
         }
 
         [AutomaticRetry(Attempts = 3)]
+        [DisableConcurrentExecution(300)]
         public async Task PersistEmbeddings(int documentId)
         {
             var state = await _stateRepo.GetStateAsync(documentId.ToString());
             try
             {
-                // Use the correct method name - AddEmbedding, not SaveEmbeddingsAsync
+                // Build batch upsert items to avoid duplicates on retries
+                var items = new List<EmbeddingUpsertItem>(state.Chunks.Count);
                 for (int i = 0; i < state.Chunks.Count; i++)
                 {
-                    _embeddingRepository.AddEmbedding(
-                        text: state.Chunks[i],
-                        embeddingData: state.Embeddings[i],
-                        documentId: documentId.ToString(),
-                        userId: int.Parse(state.UserId),
-                        conversationId: int.Parse(state.ConversationId),
-                        documentTitle: Path.GetFileName(state.FilePath)
-                    );
+                    var text = state.Chunks[i];
+                    var vector = state.Embeddings[i];
+                    items.Add(new EmbeddingUpsertItem
+                    {
+                        Text = text,
+                        Vector = vector,
+                        DocumentId = documentId.ToString(),
+                        UserId = int.Parse(state.UserId),
+                        ConversationId = int.Parse(state.ConversationId),
+                        DocumentTitle = Path.GetFileName(state.FilePath),
+                        ChunkIndex = i,
+                        ChunkHash = ComputeSha256(text)
+                    });
                 }
+
+                await _embeddingRepository.UpsertEmbeddingsAsync(items);
 
                 state.Status = ProcessingStatus.Completed;
                 await _stateRepo.SaveStateAsync(state);
@@ -148,6 +159,12 @@ namespace rag_experiment.Services.BackgroundJobs
                 await HandleJobError(documentId, ex, "Failed to persist embeddings");
                 throw;
             }
+        }
+
+        private static byte[] ComputeSha256(string input)
+        {
+            var bytes = Encoding.UTF8.GetBytes(input.Replace("\r\n", "\n").Replace("\r", "\n"));
+            return SHA256.HashData(bytes);
         }
 
         private async Task HandleJobError(int documentId, Exception ex, string message)

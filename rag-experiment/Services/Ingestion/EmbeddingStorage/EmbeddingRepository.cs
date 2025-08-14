@@ -1,6 +1,10 @@
 using rag_experiment.Models;
 using rag_experiment.Services.Auth;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace rag_experiment.Services.Ingestion.VectorStorage
 {
@@ -214,6 +218,69 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             Buffer.BlockCopy(blob, 0, embeddingData, 0, blob.Length);
 
             return embeddingData;
+        }
+
+        public async Task UpsertEmbeddingsAsync(IEnumerable<EmbeddingUpsertItem> items, CancellationToken cancellationToken = default)
+        {
+            // Group by scope to minimize queries
+            var itemsByScope = items
+                .GroupBy(i => new { i.UserId, i.ConversationId, i.DocumentId })
+                .ToList();
+
+            foreach (var scopeGroup in itemsByScope)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var scope = scopeGroup.Key;
+
+                // Prefetch existing rows for this scope
+                var existing = await _context.Embeddings
+                    .Where(e => e.UserId == scope.UserId
+                                && e.ConversationId == scope.ConversationId
+                                && e.DocumentId == scope.DocumentId)
+                    .Select(e => new { e.ChunkIndex, e.Id, e.ChunkHash })
+                    .ToListAsync(cancellationToken);
+
+                var existingByIndex = existing.ToDictionary(x => x.ChunkIndex, x => x);
+
+                var toInsert = new List<Embedding>();
+                foreach (var item in scopeGroup)
+                {
+                    if (!existingByIndex.TryGetValue(item.ChunkIndex, out var existingRow))
+                    {
+                        toInsert.Add(new Embedding
+                        {
+                            Text = item.Text,
+                            EmbeddingData = ConvertToBlob(item.Vector),
+                            DocumentId = item.DocumentId,
+                            DocumentTitle = item.DocumentTitle ?? string.Empty,
+                            UserId = item.UserId,
+                            ConversationId = item.ConversationId,
+                            ChunkIndex = item.ChunkIndex,
+                            ChunkHash = item.ChunkHash
+                        });
+                    }
+                    else
+                    {
+                        // Update only if content changed (hash differs)
+                        if (existingRow.ChunkHash == null || !item.ChunkHash.SequenceEqual(existingRow.ChunkHash))
+                        {
+                            var entity = await _context.Embeddings.FirstAsync(e => e.Id == existingRow.Id, cancellationToken);
+                            entity.Text = item.Text;
+                            entity.EmbeddingData = ConvertToBlob(item.Vector);
+                            entity.DocumentTitle = item.DocumentTitle ?? entity.DocumentTitle;
+                            entity.ChunkHash = item.ChunkHash;
+                        }
+                    }
+                }
+
+                if (toInsert.Count > 0)
+                {
+                    await _context.Embeddings.AddRangeAsync(toInsert, cancellationToken);
+                }
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }

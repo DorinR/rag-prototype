@@ -7,6 +7,8 @@ namespace rag_experiment.Models
         public byte[] EmbeddingData { get; set; }
         public string DocumentId { get; set; }
         public string DocumentTitle { get; set; }
+        public int ChunkIndex { get; set; }
+        public byte[] ChunkHash { get; set; }
 
         // User association (for access control)
         public int UserId { get; set; }
