@@ -1,5 +1,22 @@
 namespace rag_experiment.Models
 {
+    /// <summary>
+    /// Represents the source/owner of an embedding to distinguish between user-uploaded documents 
+    /// and system knowledge base content.
+    /// </summary>
+    public enum EmbeddingOwner
+    {
+        /// <summary>
+        /// Embedding generated from a user-uploaded document
+        /// </summary>
+        UserDocument,
+
+        /// <summary>
+        /// Embedding generated from system knowledge base content
+        /// </summary>
+        SystemKnowledgeBase
+    }
+
     public class Embedding
     {
         public int Id { get; set; }
@@ -9,6 +26,9 @@ namespace rag_experiment.Models
         public string DocumentTitle { get; set; }
         public int ChunkIndex { get; set; }
         public byte[] ChunkHash { get; set; }
+
+        // Source/owner classification
+        public EmbeddingOwner Owner { get; set; }
 
         // User association (for access control)
         public int UserId { get; set; }

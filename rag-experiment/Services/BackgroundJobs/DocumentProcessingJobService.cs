@@ -145,7 +145,8 @@ namespace rag_experiment.Services.BackgroundJobs
                         ConversationId = int.Parse(state.ConversationId),
                         DocumentTitle = Path.GetFileName(state.FilePath),
                         ChunkIndex = i,
-                        ChunkHash = ComputeSha256(text)
+                        ChunkHash = ComputeSha256(text),
+                        Owner = EmbeddingOwner.UserDocument
                     });
                 }
 

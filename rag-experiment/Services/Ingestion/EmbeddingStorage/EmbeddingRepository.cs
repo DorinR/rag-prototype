@@ -19,7 +19,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             _userContext = userContext;
         }
 
-        public void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, int conversationId, string documentTitle)
+        public void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, int conversationId, string documentTitle, EmbeddingOwner owner)
         {
             var embedding = new Embedding
             {
@@ -27,6 +27,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                 EmbeddingData = ConvertToBlob(embeddingData),
                 DocumentId = documentId,
                 DocumentTitle = documentTitle,
+                Owner = owner,
                 UserId = userId,
                 ConversationId = conversationId
             };
@@ -48,7 +49,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             return (embedding.Id, embedding.Text, ConvertFromBlob(embedding.EmbeddingData), embedding.DocumentId, embedding.DocumentTitle);
         }
 
-        public void UpdateEmbedding(int id, string newText, float[] newEmbeddingData, string documentId = null, string documentTitle = null)
+        public void UpdateEmbedding(int id, string newText, float[] newEmbeddingData, string? documentId = null, string? documentTitle = null, EmbeddingOwner? owner = null)
         {
             var userId = _userContext.GetCurrentUserId();
 
@@ -68,6 +69,11 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                 if (documentTitle != null)
                 {
                     embedding.DocumentTitle = documentTitle;
+                }
+
+                if (owner.HasValue)
+                {
+                    embedding.Owner = owner.Value;
                 }
 
                 _context.SaveChanges();
@@ -110,14 +116,14 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="conversationId">The conversation ID to scope the search to</param>
         /// <param name="topK">Number of results to return</param>
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
-        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int conversationId, int topK = 10)
+        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsFromUsersDocuments(float[] queryEmbedding, int conversationId, int topK = 10)
         {
             var userId = _userContext.GetCurrentUserId();
             var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
 
-            // Load all embeddings from the database for the current user and conversation
+            // Load all UserDocument embeddings from the database for the current user and conversation
             var embeddings = _context.Embeddings
-                .Where(e => e.UserId == userId && e.ConversationId == conversationId)
+                .Where(e => e.UserId == userId && e.ConversationId == conversationId && e.Owner == EmbeddingOwner.UserDocument)
                 .ToList();
 
             // Calculate similarity for each embedding
@@ -147,10 +153,42 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             var userId = _userContext.GetCurrentUserId();
             var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
 
-            // Load all embeddings from the database for the current user across all conversations
+            // Load all UserDocument embeddings from the database for the current user across all conversations
             var embeddings = _context.Embeddings
-                .Where(e => e.UserId == userId)
+                .Where(e => e.UserId == userId && e.Owner == EmbeddingOwner.UserDocument)
                 .ToList();
+
+            // Calculate similarity for each embedding
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+            }
+
+            // Return top K results, ordered by similarity (highest first)
+            return results
+                .OrderByDescending(r => r.Similarity)
+                .Take(topK)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Finds the most similar embeddings in the database to the query embedding across ALL embeddings in the entire system.
+        /// This searches through all users' documents and conversations without any filtering.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="topK">Number of results to return</param>
+        /// <returns>Task containing a list of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
+        public async Task<List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>> FindSimilarEmbeddingsAsync(float[] queryEmbedding, int topK = 10)
+        {
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load ALL SystemKnowledgeBase embeddings from the database (excluding user documents)
+            var embeddings = await _context.Embeddings
+                .Where(e => e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                .ToListAsync();
 
             // Calculate similarity for each embedding
             foreach (var embedding in embeddings)
@@ -254,6 +292,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                             EmbeddingData = ConvertToBlob(item.Vector),
                             DocumentId = item.DocumentId,
                             DocumentTitle = item.DocumentTitle ?? string.Empty,
+                            Owner = item.Owner,
                             UserId = item.UserId,
                             ConversationId = item.ConversationId,
                             ChunkIndex = item.ChunkIndex,
@@ -269,6 +308,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                             entity.Text = item.Text;
                             entity.EmbeddingData = ConvertToBlob(item.Vector);
                             entity.DocumentTitle = item.DocumentTitle ?? entity.DocumentTitle;
+                            entity.Owner = item.Owner;
                             entity.ChunkHash = item.ChunkHash;
                         }
                     }

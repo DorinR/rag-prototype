@@ -1,3 +1,5 @@
+using rag_experiment.Models;
+
 namespace rag_experiment.Services.Ingestion.VectorStorage
 {
     /// <summary>
@@ -14,6 +16,11 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// The embedding vector for the chunk.
         /// </summary>
         public required float[] Vector { get; init; }
+
+        /// <summary>
+        /// The source/owner of the embedding (UserDocument or SystemKnowledgeBase).
+        /// </summary>
+        public required EmbeddingOwner Owner { get; init; }
 
         /// <summary>
         /// The owning user id (multi-tenant scoping).
@@ -68,7 +75,8 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="userId">user ID</param>
         /// <param name="conversationId">conversation ID</param>
         /// <param name="documentTitle">document title</param>
-        void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, int conversationId, string documentTitle);
+        /// <param name="owner">The source/owner of the embedding (UserDocument or SystemKnowledgeBase)</param>
+        void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, int conversationId, string documentTitle, EmbeddingOwner owner);
 
         /// <summary>
         /// Retrieves an embedding by its ID
@@ -85,7 +93,8 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="newEmbeddingData">New embedding vector</param>
         /// <param name="documentId">Optional new document ID</param>
         /// <param name="documentTitle">Optional new document title</param>
-        void UpdateEmbedding(int id, string newText, float[] newEmbeddingData, string documentId = null, string documentTitle = null);
+        /// <param name="owner">Optional new source/owner of the embedding</param>
+        void UpdateEmbedding(int id, string newText, float[] newEmbeddingData, string? documentId = null, string? documentTitle = null, EmbeddingOwner? owner = null);
 
         /// <summary>
         /// Deletes an embedding from the database
@@ -100,21 +109,30 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         void DeleteEmbeddingsByDocumentId(string documentId);
 
         /// <summary>
-        /// Finds the most similar embeddings in the database to the query embedding, scoped to a conversation
+        /// Finds the most similar embeddings in the database to the query embedding, scoped to a user's conversation and UserDocument embeddings only
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
         /// <param name="conversationId">The conversation ID to scope the search to</param>
         /// <param name="topK">Number of results to return</param>
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
-        List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddings(float[] queryEmbedding, int conversationId, int topK = 10);
+        List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsFromUsersDocuments(float[] queryEmbedding, int conversationId, int topK = 10);
 
         /// <summary>
-        /// Finds the most similar embeddings in the database to the query embedding across all user's conversations
+        /// Finds the most similar embeddings in the database to the query embedding across all user's conversations, limited to UserDocument embeddings only
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
         /// <param name="topK">Number of results to return</param>
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
         List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsAllConversations(float[] queryEmbedding, int topK = 10);
+
+        /// <summary>
+        /// Finds the most similar embeddings in the database to the query embedding across ALL SystemKnowledgeBase embeddings.
+        /// This searches only through system knowledge base content, excluding user-uploaded documents.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="topK">Number of results to return</param>
+        /// <returns>Task containing a list of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
+        Task<List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>> FindSimilarEmbeddingsAsync(float[] queryEmbedding, int topK = 10);
 
         /// <summary>
         /// Upserts a batch of embeddings using a stable uniqueness key such as (UserId, ConversationId, DocumentId, ChunkIndex).

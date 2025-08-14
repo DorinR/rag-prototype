@@ -100,7 +100,8 @@ namespace rag_experiment.Services
                     documentId: document.Id.ToString(),
                     userId: userId,
                     conversationId: conversationId,
-                    documentTitle: document.OriginalFileName
+                    documentTitle: document.OriginalFileName,
+                    owner: EmbeddingOwner.UserDocument
                 );
             }
 
