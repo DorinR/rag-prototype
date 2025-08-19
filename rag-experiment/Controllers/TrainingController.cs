@@ -1,167 +1,39 @@
 using Microsoft.AspNetCore.Mvc;
 using rag_experiment.Services;
 using rag_experiment.Models;
-using Microsoft.Extensions.Options;
-using System.Text;
 using rag_experiment.Services.Ingestion.VectorStorage;
-using rag_experiment.Services.Ingestion.TextExtraction;
 
 namespace rag_experiment.Controllers
 {
+    /// <summary>
+    /// Controller responsible for training operations including document processing and embedding generation
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    public class RagController : ControllerBase
+    public class TrainingController : ControllerBase
     {
         private readonly EmbeddingRepository _embeddingRepository;
         private readonly IEmbeddingGenerationService _openAiEmbeddingGenerationService;
-        private readonly IQueryPreprocessor _queryPreprocessor;
-        private readonly ILlmService _llmService;
         private readonly ITextProcessor _textProcessor;
         private readonly AppDbContext _dbContext;
 
-        public RagController(
+        /// <summary>
+        /// Initializes a new instance of the TrainingController
+        /// </summary>
+        /// <param name="embeddingRepository">Repository for managing embeddings</param>
+        /// <param name="openAiEmbeddingGenerationService">Service for generating embeddings</param>
+        /// <param name="textProcessor">Service for text processing operations</param>
+        /// <param name="dbContext">Database context for data operations</param>
+        public TrainingController(
             EmbeddingRepository embeddingRepository,
             IEmbeddingGenerationService openAiEmbeddingGenerationService,
-            IQueryPreprocessor queryPreprocessor,
-            ILlmService llmService,
             ITextProcessor textProcessor,
             AppDbContext dbContext)
         {
             _embeddingRepository = embeddingRepository;
             _openAiEmbeddingGenerationService = openAiEmbeddingGenerationService;
-            _queryPreprocessor = queryPreprocessor;
-            _llmService = llmService;
             _textProcessor = textProcessor;
             _dbContext = dbContext;
-        }
-
-        [HttpPost("query")]
-        public async Task<IActionResult> Query([FromBody] QueryRequest request)
-        {
-            if (string.IsNullOrEmpty(request.Query))
-            {
-                return BadRequest("Query is required");
-            }
-
-            if (request.ConversationId <= 0)
-            {
-                return BadRequest("ConversationId is required");
-            }
-
-            try
-            {
-                // Pre-process the query
-                string processedQuery = await _queryPreprocessor.ProcessQueryAsync(request.Query);
-
-                // Generate embedding for the processed query
-                var queryEmbedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
-
-                // Find similar documents within the specified conversation
-                var limit = request.Limit > 0 ? request.Limit : 10;
-                var similarDocuments = _embeddingRepository.FindSimilarEmbeddingsFromUsersDocuments(queryEmbedding, request.ConversationId, limit);
-
-                // Format the retrieved passages
-                var retrievedResults = similarDocuments.Select(doc => new
-                {
-                    text = doc.Text,
-                    documentId = doc.DocumentId,
-                    documentTitle = doc.DocumentTitle,
-                    similarity = doc.Similarity
-                }).ToList();
-
-                // Combine the top chunks into a single context string
-                var contextBuilder = new StringBuilder();
-                foreach (var doc in retrievedResults)
-                {
-                    contextBuilder.AppendLine($"--- {doc.documentTitle} ---");
-                    contextBuilder.AppendLine(doc.text);
-                    contextBuilder.AppendLine();
-                }
-                string combinedContext = contextBuilder.ToString();
-
-                // Generate LLM response using the combined context
-                string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
-
-                // Return the formatted response with both retrieved chunks and LLM answer
-                return Ok(new
-                {
-                    originalQuery = request.Query,
-                    processedQuery = processedQuery,
-                    conversationId = request.ConversationId,
-                    llmResponse = llmResponse,
-                    retrievedChunks = retrievedResults
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred processing the query: {ex.Message}");
-            }
-        }
-
-        [HttpPost("query-knowledge-base")]
-        public async Task<IActionResult> QueryKnowledgeBase([FromBody] QueryRequest request)
-        {
-            if (string.IsNullOrEmpty(request.Query))
-            {
-                return BadRequest("Query is required");
-            }
-
-            if (request.ConversationId <= 0)
-            {
-                return BadRequest("ConversationId is required");
-            }
-
-            try
-            {
-                // Pre-process the query
-                string processedQuery = await _queryPreprocessor.ProcessQueryAsync(request.Query);
-
-                // Generate embedding for the processed query
-                var queryEmbedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
-
-                // Find similar documents across the entire knowledge base (all users and conversations)
-                var limit = request.Limit > 0 ? request.Limit : 10;
-                var similarDocuments = await _embeddingRepository.FindSimilarEmbeddingsAsync(queryEmbedding, limit);
-
-                // realted documents
-                var relatedDocumentsIds = similarDocuments.Select(doc => doc.DocumentId).Distinct().ToList();
-
-                // Format the retrieved passages
-                var retrievedResults = similarDocuments.Select(doc => new
-                {
-                    text = doc.Text,
-                    documentId = doc.DocumentId,
-                    documentTitle = doc.DocumentTitle,
-                    similarity = doc.Similarity
-                }).ToList();
-
-                // Combine the top chunks into a single context string
-                var contextBuilder = new StringBuilder();
-                foreach (var doc in retrievedResults)
-                {
-                    contextBuilder.AppendLine($"--- {doc.documentTitle} ---");
-                    contextBuilder.AppendLine(doc.text);
-                    contextBuilder.AppendLine();
-                }
-                string combinedContext = contextBuilder.ToString();
-
-                // Generate LLM response using the combined context
-                string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
-
-                // Return the formatted response with both retrieved chunks and LLM answer
-                return Ok(new
-                {
-                    originalQuery = request.Query,
-                    processedQuery = processedQuery,
-                    conversationId = request.ConversationId,
-                    llmResponse = llmResponse,
-                    retrievedChunks = retrievedResults
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred processing the query: {ex.Message}");
-            }
         }
 
         /// <summary>
@@ -297,6 +169,10 @@ namespace rag_experiment.Controllers
         /// <summary>
         /// Splits text into chunks with overlap for training purposes.
         /// </summary>
+        /// <param name="text">The text to split into chunks</param>
+        /// <param name="chunkSize">Maximum size of each chunk in characters</param>
+        /// <param name="overlap">Number of characters to overlap between chunks</param>
+        /// <returns>List of text chunks</returns>
         private List<string> SplitTextIntoChunks(string text, int chunkSize, int overlap)
         {
             var chunks = new List<string>();
@@ -325,21 +201,14 @@ namespace rag_experiment.Controllers
         }
     }
 
-    public class QueryRequest
-    {
-        public required string Query { get; set; }
-        public int ConversationId { get; set; }
-        public int Limit { get; set; } = 10;
-    }
-
-    public class QueryAllConversationsRequest
-    {
-        public required string Query { get; set; }
-        public int Limit { get; set; } = 10;
-    }
-
+    /// <summary>
+    /// Request model for training operations
+    /// </summary>
     public class TrainRequest
     {
+        /// <summary>
+        /// The folder name containing training documents
+        /// </summary>
         public required string FolderName { get; set; }
     }
 }

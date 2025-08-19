@@ -10,25 +10,31 @@ namespace rag_experiment.Services
         private readonly string _apiKey;
         private readonly string _openAiModel;
         private readonly ILogger<OpenAILlmService> _logger;
-        
+
         public OpenAILlmService(IConfiguration configuration, HttpClient httpClient, ILogger<OpenAILlmService> logger = null)
         {
             _httpClient = httpClient;
-            _apiKey = configuration["OpenAI:ApiKey"] 
+            _apiKey = configuration["OpenAI:ApiKey"]
                 ?? throw new ArgumentException("OpenAI API key not found in configuration");
             _openAiModel = configuration["OpenAI:ChatModel"] ?? "gpt-3.5-turbo";
             _logger = logger;
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
         }
-        
+
+        /// <summary>
+        /// Generates an AI response to a user query using OpenAI, based only on the provided context.
+        /// </summary>
+        /// <param name="query">The user's question to answer</param>
+        /// <param name="context">The retrieved document context to base the answer on</param>
+        /// <returns>AI-generated response string</returns>
         public async Task<string> GenerateResponseAsync(string query, string context)
         {
             if (string.IsNullOrWhiteSpace(query))
                 return "No query provided.";
-                
+
             if (string.IsNullOrWhiteSpace(context))
                 return "No relevant information found to answer this query.";
-                
+
             try
             {
                 var chatMessage = new ChatMessage
@@ -61,13 +67,13 @@ namespace rag_experiment.Services
                 var chatResponse = JsonSerializer.Deserialize<ChatResponse>(responseContent);
 
                 var generatedResponse = chatResponse?.Choices?.FirstOrDefault()?.Message?.Content?.Trim();
-                
+
                 if (string.IsNullOrEmpty(generatedResponse))
                 {
                     _logger?.LogWarning("OpenAI returned empty response for query.");
                     return "Unable to generate a response based on the available information.";
                 }
-                
+
                 return generatedResponse;
             }
             catch (Exception ex)
@@ -76,45 +82,45 @@ namespace rag_experiment.Services
                 return $"An error occurred while generating a response: {ex.Message}";
             }
         }
-        
+
         #region OpenAI API Request/Response Models
-        
+
         private class ChatMessage
         {
             [JsonPropertyName("model")]
             public string Model { get; set; }
-            
+
             [JsonPropertyName("messages")]
             public List<Message> Messages { get; set; }
-            
+
             [JsonPropertyName("max_tokens")]
             public int MaxTokens { get; set; }
-            
+
             [JsonPropertyName("temperature")]
             public double Temperature { get; set; }
         }
-        
+
         private class Message
         {
             [JsonPropertyName("role")]
             public string Role { get; set; }
-            
+
             [JsonPropertyName("content")]
             public string Content { get; set; }
         }
-        
+
         private class ChatResponse
         {
             [JsonPropertyName("choices")]
             public List<Choice> Choices { get; set; }
         }
-        
+
         private class Choice
         {
             [JsonPropertyName("message")]
             public Message Message { get; set; }
         }
-        
+
         #endregion
     }
-} 
+}

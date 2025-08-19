@@ -37,6 +37,8 @@
       <Folder Include="Test Data/" />
       <Folder Include="Test Data/cisi_evaluation/" />
       <Folder Include="Test Data/ww2-articles/" />
+      <Folder Include="Training/" />
+      <Folder Include="Training/One/" />
       <Folder Include="Uploads/" />
     </ItemGroup>
 
