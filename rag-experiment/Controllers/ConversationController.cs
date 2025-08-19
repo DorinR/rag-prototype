@@ -31,7 +31,8 @@ namespace rag_experiment.Controllers
                 var conversation = new Conversation
                 {
                     Title = request.Title,
-                    UserId = userId
+                    UserId = userId,
+                    Type = ConversationType.DocumentQuery
                 };
 
                 _dbContext.Conversations.Add(conversation);
@@ -41,6 +42,7 @@ namespace rag_experiment.Controllers
                 {
                     id = conversation.Id,
                     title = conversation.Title,
+                    type = conversation.Type.ToString(),
                     createdAt = conversation.CreatedAt,
                     updatedAt = conversation.UpdatedAt
                 });
@@ -48,6 +50,43 @@ namespace rag_experiment.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred while creating the conversation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Creates a new conversation for querying the general knowledge base
+        /// </summary>
+        /// <param name="request">Request containing the conversation title</param>
+        /// <returns>Created conversation details</returns>
+        [HttpPost("general-knowledge")]
+        public async Task<IActionResult> CreateGeneralKnowledgeConversation([FromBody] CreateConversationRequest request)
+        {
+            try
+            {
+                var userId = _userContext.GetCurrentUserId();
+
+                var conversation = new Conversation
+                {
+                    Title = request.Title,
+                    UserId = userId,
+                    Type = ConversationType.GeneralKnowledge
+                };
+
+                _dbContext.Conversations.Add(conversation);
+                await _dbContext.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    id = conversation.Id,
+                    title = conversation.Title,
+                    type = conversation.Type.ToString(),
+                    createdAt = conversation.CreatedAt,
+                    updatedAt = conversation.UpdatedAt
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while creating the general knowledge conversation: {ex.Message}");
             }
         }
 
@@ -65,6 +104,7 @@ namespace rag_experiment.Controllers
                     {
                         c.Id,
                         c.Title,
+                        Type = c.Type.ToString(),
                         c.CreatedAt,
                         c.UpdatedAt,
                         DocumentCount = c.Documents.Count,
@@ -99,6 +139,7 @@ namespace rag_experiment.Controllers
                 {
                     conversation.Id,
                     conversation.Title,
+                    Type = conversation.Type.ToString(),
                     conversation.CreatedAt,
                     conversation.UpdatedAt,
                     Documents = conversation.Documents.Select(d => new

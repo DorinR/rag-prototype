@@ -46,6 +46,7 @@ namespace rag_experiment.Services
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Type).IsRequired().HasDefaultValue(ConversationType.DocumentQuery);
                 entity.HasOne(e => e.User)
                     .WithMany(u => u.Conversations)
                     .HasForeignKey(e => e.UserId)
@@ -63,7 +64,8 @@ namespace rag_experiment.Services
                 entity.HasOne(e => e.Conversation)
                     .WithMany(c => c.Documents)
                     .HasForeignKey(e => e.ConversationId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .IsRequired(false); // Make the relationship optional
             });
 
             // Configure Message entity
@@ -92,11 +94,13 @@ namespace rag_experiment.Services
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .IsRequired(false); // Make the relationship optional
                 entity.HasOne(e => e.Conversation)
                     .WithMany()
                     .HasForeignKey(e => e.ConversationId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .IsRequired(false); // Make the relationship optional
             });
         }
     }

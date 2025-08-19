@@ -10,15 +10,15 @@ namespace rag_experiment.Models
         public string FilePath { get; set; }
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
         public string Description { get; set; }
-        
+
         /// <summary>
         /// The full extracted and processed text content of the document.
         /// This is used for adding complete document context to LLM queries.
         /// </summary>
         public string? DocumentText { get; set; }
 
-        // Conversation association (instead of direct user association)
-        public int ConversationId { get; set; }
-        public Conversation Conversation { get; set; }
+        // Conversation association (instead of direct user association) - Optional
+        public int? ConversationId { get; set; }
+        public Conversation? Conversation { get; set; }
     }
 }

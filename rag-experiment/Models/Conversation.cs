@@ -10,6 +10,11 @@ namespace rag_experiment.Models
         [MaxLength(200)]
         public string Title { get; set; }
 
+        /// <summary>
+        /// The type of conversation - determines query context and behavior
+        /// </summary>
+        public ConversationType Type { get; set; } = ConversationType.DocumentQuery;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

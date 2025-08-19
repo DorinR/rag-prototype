@@ -2,6 +2,8 @@ using Microsoft.Extensions.Options;
 using rag_experiment.Models;
 using rag_experiment.Services.Ingestion.TextExtraction;
 using rag_experiment.Services.Ingestion.VectorStorage;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace rag_experiment.Services
 {
@@ -93,6 +95,9 @@ namespace rag_experiment.Services
                 // Add to result list
                 result.Add(documentEmbedding);
 
+                // Generate hash of chunk text for change detection
+                var chunkHash = GenerateChunkHash(chunk);
+
                 // Store in the vector database using the embedding service
                 _embeddingRepositoryRepository.AddEmbedding(
                     text: chunk,
@@ -101,7 +106,9 @@ namespace rag_experiment.Services
                     userId: userId,
                     conversationId: conversationId,
                     documentTitle: document.OriginalFileName,
-                    owner: EmbeddingOwner.UserDocument
+                    owner: EmbeddingOwner.UserDocument,
+                    chunkIndex: i,
+                    chunkHash: chunkHash
                 );
             }
 
@@ -109,6 +116,19 @@ namespace rag_experiment.Services
             await _dbContext.SaveChangesAsync();
 
             return result;
+        }
+
+        /// <summary>
+        /// Generates a SHA256 hash of the chunk text for change detection
+        /// </summary>
+        /// <param name="chunkText">The text content to hash</param>
+        /// <returns>SHA256 hash as byte array</returns>
+        private byte[] GenerateChunkHash(string chunkText)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                return sha256.ComputeHash(Encoding.UTF8.GetBytes(chunkText));
+            }
         }
     }
 }

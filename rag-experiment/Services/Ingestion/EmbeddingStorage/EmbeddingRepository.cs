@@ -19,7 +19,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             _userContext = userContext;
         }
 
-        public void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, int conversationId, string documentTitle, EmbeddingOwner owner)
+        public void AddEmbedding(string text, float[] embeddingData, string documentId, int? userId, int? conversationId, string documentTitle, EmbeddingOwner owner, int chunkIndex, byte[] chunkHash)
         {
             var embedding = new Embedding
             {
@@ -29,7 +29,9 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                 DocumentTitle = documentTitle,
                 Owner = owner,
                 UserId = userId,
-                ConversationId = conversationId
+                ConversationId = conversationId,
+                ChunkIndex = chunkIndex,
+                ChunkHash = chunkHash
             };
 
             _context.Embeddings.Add(embedding);
@@ -116,14 +118,16 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="conversationId">The conversation ID to scope the search to</param>
         /// <param name="topK">Number of results to return</param>
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
-        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsFromUsersDocuments(float[] queryEmbedding, int conversationId, int topK = 10)
+        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsFromUsersDocuments(float[] queryEmbedding, int? conversationId, int topK = 10)
         {
             var userId = _userContext.GetCurrentUserId();
             var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
 
-            // Load all UserDocument embeddings from the database for the current user and conversation
+            // Load all UserDocument embeddings from the database for the current user and conversation (if specified)
             var embeddings = _context.Embeddings
-                .Where(e => e.UserId == userId && e.ConversationId == conversationId && e.Owner == EmbeddingOwner.UserDocument)
+                .Where(e => e.UserId == userId &&
+                           (conversationId == null || e.ConversationId == conversationId) &&
+                           e.Owner == EmbeddingOwner.UserDocument)
                 .ToList();
 
             // Calculate similarity for each embedding
@@ -273,8 +277,8 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
 
                 // Prefetch existing rows for this scope
                 var existing = await _context.Embeddings
-                    .Where(e => e.UserId == scope.UserId
-                                && e.ConversationId == scope.ConversationId
+                    .Where(e => (scope.UserId == null ? e.UserId == null : e.UserId == scope.UserId)
+                                && (scope.ConversationId == null ? e.ConversationId == null : e.ConversationId == scope.ConversationId)
                                 && e.DocumentId == scope.DocumentId)
                     .Select(e => new { e.ChunkIndex, e.Id, e.ChunkHash })
                     .ToListAsync(cancellationToken);

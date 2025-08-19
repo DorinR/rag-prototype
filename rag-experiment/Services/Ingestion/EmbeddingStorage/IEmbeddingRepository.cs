@@ -23,14 +23,14 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         public required EmbeddingOwner Owner { get; init; }
 
         /// <summary>
-        /// The owning user id (multi-tenant scoping).
+        /// The owning user id (multi-tenant scoping) - Optional for system knowledge.
         /// </summary>
-        public required int UserId { get; init; }
+        public required int? UserId { get; init; }
 
         /// <summary>
-        /// The conversation id (additional scope boundary).
+        /// The conversation id (additional scope boundary) - Optional.
         /// </summary>
-        public required int ConversationId { get; init; }
+        public required int? ConversationId { get; init; }
 
         /// <summary>
         /// Logical document id for grouping embeddings by source document.
@@ -72,11 +72,13 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="text">The text content</param>
         /// <param name="embeddingData">The embedding vector</param>
         /// <param name="documentId">document ID</param>
-        /// <param name="userId">user ID</param>
-        /// <param name="conversationId">conversation ID</param>
+        /// <param name="userId">user ID (optional for system knowledge)</param>
+        /// <param name="conversationId">conversation ID (optional)</param>
         /// <param name="documentTitle">document title</param>
         /// <param name="owner">The source/owner of the embedding (UserDocument or SystemKnowledgeBase)</param>
-        void AddEmbedding(string text, float[] embeddingData, string documentId, int userId, int conversationId, string documentTitle, EmbeddingOwner owner);
+        /// <param name="chunkIndex">The index/position of the chunk within the document</param>
+        /// <param name="chunkHash">Hash of the chunk text for change detection</param>
+        void AddEmbedding(string text, float[] embeddingData, string documentId, int? userId, int? conversationId, string documentTitle, EmbeddingOwner owner, int chunkIndex, byte[] chunkHash);
 
         /// <summary>
         /// Retrieves an embedding by its ID
@@ -112,10 +114,10 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// Finds the most similar embeddings in the database to the query embedding, scoped to a user's conversation and UserDocument embeddings only
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
-        /// <param name="conversationId">The conversation ID to scope the search to</param>
+        /// <param name="conversationId">The conversation ID to scope the search to (optional)</param>
         /// <param name="topK">Number of results to return</param>
         /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
-        List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsFromUsersDocuments(float[] queryEmbedding, int conversationId, int topK = 10);
+        List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsFromUsersDocuments(float[] queryEmbedding, int? conversationId, int topK = 10);
 
         /// <summary>
         /// Finds the most similar embeddings in the database to the query embedding across all user's conversations, limited to UserDocument embeddings only

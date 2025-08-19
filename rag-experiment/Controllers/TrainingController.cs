@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using rag_experiment.Services;
 using rag_experiment.Models;
 using rag_experiment.Services.Ingestion.VectorStorage;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace rag_experiment.Controllers
 {
@@ -77,9 +79,7 @@ namespace rag_experiment.Controllers
                 int totalChunks = 0;
                 var processedFiles = new List<string>();
 
-                // System constants for training data
-                const int SYSTEM_USER_ID = -1; // Special user ID for system training data
-                const int SYSTEM_CONVERSATION_ID = -1; // Special conversation ID for system training data
+                // Use null for system training data (no user or conversation association)
 
                 foreach (string filePath in txtFiles)
                 {
@@ -106,7 +106,7 @@ namespace rag_experiment.Controllers
                             FilePath = filePath,
                             Description = $"Training document from {request.FolderName} folder",
                             DocumentText = text, // Store the full extracted text
-                            ConversationId = SYSTEM_CONVERSATION_ID,
+                            ConversationId = null,
                             UploadedAt = DateTime.UtcNow
                         };
 
@@ -124,15 +124,20 @@ namespace rag_experiment.Controllers
                         {
                             var embedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(chunk.value);
 
+                            // Generate hash of chunk text for change detection
+                            var chunkHash = GenerateChunkHash(chunk.value);
+
                             // Store as SystemKnowledgeBase embedding with real document ID
                             _embeddingRepository.AddEmbedding(
                                 text: chunk.value,
                                 embeddingData: embedding,
                                 documentId: document.Id.ToString(), // Use real document ID
-                                userId: SYSTEM_USER_ID,
-                                conversationId: SYSTEM_CONVERSATION_ID,
+                                userId: null, // No user association for system training data
+                                conversationId: null, // No conversation association for system training data
                                 documentTitle: fileName,
-                                owner: EmbeddingOwner.SystemKnowledgeBase
+                                owner: EmbeddingOwner.SystemKnowledgeBase,
+                                chunkIndex: chunk.index,
+                                chunkHash: chunkHash
                             );
 
                             totalChunks++;
@@ -198,6 +203,19 @@ namespace rag_experiment.Controllers
             }
 
             return chunks;
+        }
+
+        /// <summary>
+        /// Generates a SHA256 hash of the chunk text for change detection
+        /// </summary>
+        /// <param name="chunkText">The text content to hash</param>
+        /// <returns>SHA256 hash as byte array</returns>
+        private byte[] GenerateChunkHash(string chunkText)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                return sha256.ComputeHash(Encoding.UTF8.GetBytes(chunkText));
+            }
         }
     }
 
