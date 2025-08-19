@@ -15,6 +15,7 @@ using Hangfire.PostgreSql;
 using rag_experiment.Services.BackgroundJobs;
 using Microsoft.Extensions.Options;
 using rag_experiment.Repositories;
+using rag_experiment.Repositories.Documents;
 using rag_experiment.Services.Ingestion.TextExtraction;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -192,11 +193,9 @@ builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>(
 builder.Services.AddScoped<EmbeddingRepository>();
 builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
 builder.Services.AddScoped<ILlmService, OpenAILlmService>();
-builder.Services.AddScoped<IEvaluationService, EvaluationService>();
-builder.Services.AddScoped<IExperimentService, ExperimentService>();
-builder.Services.AddScoped<ICsvExportService, CsvExportService>();
 builder.Services.AddSingleton<IDocumentProcessingStateRepository, InMemoryDocumentProcessingStateRepository>();
 builder.Services.AddScoped<IEmbeddingRepository, EmbeddingRepository>();
+builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 
 
 
