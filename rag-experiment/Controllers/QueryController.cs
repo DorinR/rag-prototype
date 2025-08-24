@@ -165,8 +165,6 @@ namespace rag_experiment.Controllers
                 return StatusCode(500, $"An error occurred processing the query: {ex.Message}");
             }
         }
-
-
     }
 
     public class QueryRequest
@@ -181,6 +179,4 @@ namespace rag_experiment.Controllers
         public required string Query { get; set; }
         public int Limit { get; set; } = 10;
     }
-
-
 }
