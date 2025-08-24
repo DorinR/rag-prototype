@@ -39,6 +39,7 @@
       <Folder Include="Test Data/ww2-articles/" />
       <Folder Include="Training/" />
       <Folder Include="Training/One/" />
+      <Folder Include="Training/Three/" />
       <Folder Include="Training/Two/" />
       <Folder Include="Uploads/" />
     </ItemGroup>

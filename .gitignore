@@ -208,3 +208,6 @@ appsettings.Development.json
 
 # Document uploads
 Uploads/
+
+# Training data
+Training/

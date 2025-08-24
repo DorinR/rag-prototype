@@ -39,7 +39,7 @@ namespace rag_experiment.Controllers
         }
 
         /// <summary>
-        /// Trains the system by processing all TXT files in the specified training folder
+        /// Trains the system by processing all TXT files found in subdirectories of the specified training folder
         /// and creating SystemKnowledgeBase embeddings for them. Also creates Document records with full text content.
         /// </summary>
         /// <param name="request">Training request containing the folder name</param>
@@ -62,14 +62,24 @@ namespace rag_experiment.Controllers
                     return NotFound($"Training folder '{request.FolderName}' not found");
                 }
 
-                // Get only TXT files in the training folder
-                var txtFiles = Directory.GetFiles(trainingFolderPath, "*.txt", SearchOption.AllDirectories);
+                // Get all subdirectories within the training folder
+                var subDirectories = Directory.GetDirectories(trainingFolderPath);
 
-                if (txtFiles.Length == 0)
+                // Get TXT files only from subdirectories (not from the root training folder)
+                var txtFiles = new List<string>();
+                foreach (var subDirectory in subDirectories)
+                {
+                    var filesInSubDir = Directory.GetFiles(subDirectory, "*.txt", SearchOption.AllDirectories);
+                    txtFiles.AddRange(filesInSubDir);
+                }
+
+                var txtFilesArray = txtFiles.ToArray();
+
+                if (txtFilesArray.Length == 0)
                 {
                     return Ok(new
                     {
-                        message = "No TXT files found in the training folder",
+                        message = "No TXT files found in subdirectories of the training folder",
                         folderName = request.FolderName,
                         documentsProcessed = 0
                     });
@@ -81,7 +91,7 @@ namespace rag_experiment.Controllers
 
                 // Use null for system training data (no user or conversation association)
 
-                foreach (string filePath in txtFiles)
+                foreach (string filePath in txtFilesArray)
                 {
                     string fileName = Path.GetFileName(filePath);
 
