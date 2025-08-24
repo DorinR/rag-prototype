@@ -51,6 +51,12 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// Optional document title for display/query convenience.
         /// </summary>
         public string? DocumentTitle { get; init; }
+
+        /// <summary>
+        /// The name of the training folder this embedding originated from.
+        /// Null for user-uploaded document embeddings, populated for training data embeddings.
+        /// </summary>
+        public string? TrainingFolderName { get; init; }
     }
 
     /// <summary>
@@ -78,7 +84,8 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="owner">The source/owner of the embedding (UserDocument or SystemKnowledgeBase)</param>
         /// <param name="chunkIndex">The index/position of the chunk within the document</param>
         /// <param name="chunkHash">Hash of the chunk text for change detection</param>
-        void AddEmbedding(string text, float[] embeddingData, string documentId, int? userId, int? conversationId, string documentTitle, EmbeddingOwner owner, int chunkIndex, byte[] chunkHash);
+        /// <param name="trainingFolderName">The name of the training folder (optional, for training data)</param>
+        void AddEmbedding(string text, float[] embeddingData, string documentId, int? userId, int? conversationId, string documentTitle, EmbeddingOwner owner, int chunkIndex, byte[] chunkHash, string? trainingFolderName = null);
 
         /// <summary>
         /// Retrieves an embedding by its ID

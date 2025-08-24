@@ -30,6 +30,12 @@ namespace rag_experiment.Models
         // Source/owner classification
         public EmbeddingOwner Owner { get; set; }
 
+        /// <summary>
+        /// The name of the training folder this embedding originated from.
+        /// Null for user-uploaded document embeddings, populated for training data embeddings.
+        /// </summary>
+        public string? TrainingFolderName { get; set; }
+
         // User association (for access control) - Optional for system knowledge
         public int? UserId { get; set; }
         public User? User { get; set; }

@@ -19,7 +19,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             _userContext = userContext;
         }
 
-        public void AddEmbedding(string text, float[] embeddingData, string documentId, int? userId, int? conversationId, string documentTitle, EmbeddingOwner owner, int chunkIndex, byte[] chunkHash)
+        public void AddEmbedding(string text, float[] embeddingData, string documentId, int? userId, int? conversationId, string documentTitle, EmbeddingOwner owner, int chunkIndex, byte[] chunkHash, string? trainingFolderName = null)
         {
             var embedding = new Embedding
             {
@@ -31,7 +31,8 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                 UserId = userId,
                 ConversationId = conversationId,
                 ChunkIndex = chunkIndex,
-                ChunkHash = chunkHash
+                ChunkHash = chunkHash,
+                TrainingFolderName = trainingFolderName
             };
 
             _context.Embeddings.Add(embedding);
@@ -300,7 +301,8 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                             UserId = item.UserId,
                             ConversationId = item.ConversationId,
                             ChunkIndex = item.ChunkIndex,
-                            ChunkHash = item.ChunkHash
+                            ChunkHash = item.ChunkHash,
+                            TrainingFolderName = item.TrainingFolderName
                         });
                     }
                     else
@@ -314,6 +316,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                             entity.DocumentTitle = item.DocumentTitle ?? entity.DocumentTitle;
                             entity.Owner = item.Owner;
                             entity.ChunkHash = item.ChunkHash;
+                            entity.TrainingFolderName = item.TrainingFolderName;
                         }
                     }
                 }

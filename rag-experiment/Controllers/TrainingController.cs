@@ -106,6 +106,7 @@ namespace rag_experiment.Controllers
                             FilePath = filePath,
                             Description = $"Training document from {request.FolderName} folder",
                             DocumentText = text, // Store the full extracted text
+                            TrainingFolderName = request.FolderName,
                             ConversationId = null,
                             UploadedAt = DateTime.UtcNow
                         };
@@ -137,7 +138,8 @@ namespace rag_experiment.Controllers
                                 documentTitle: fileName,
                                 owner: EmbeddingOwner.SystemKnowledgeBase,
                                 chunkIndex: chunk.index,
-                                chunkHash: chunkHash
+                                chunkHash: chunkHash,
+                                trainingFolderName: request.FolderName
                             );
 
                             totalChunks++;

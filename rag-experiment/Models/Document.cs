@@ -17,6 +17,12 @@ namespace rag_experiment.Models
         /// </summary>
         public string? DocumentText { get; set; }
 
+        /// <summary>
+        /// The name of the training folder this document originated from.
+        /// Null for user-uploaded documents, populated for training data.
+        /// </summary>
+        public string? TrainingFolderName { get; set; }
+
         // Conversation association (instead of direct user association) - Optional
         public int? ConversationId { get; set; }
         public Conversation? Conversation { get; set; }
