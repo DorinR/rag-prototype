@@ -329,5 +329,82 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
 
             await _context.SaveChangesAsync(cancellationToken);
         }
+
+        /// <summary>
+        /// Upserts a batch of document-only embeddings for arbitrary datasets.
+        /// This method is optimized for bulk operations and uses DocumentId + ChunkIndex as the uniqueness key.
+        /// It performs efficient bulk inserts and updates only when content has changed (based on chunk hash).
+        /// </summary>
+        /// <param name="items">The embedding items to upsert</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task that completes when the batch upsert finishes</returns>
+        public async Task UpsertDocumentEmbeddingsAsync(IEnumerable<EmbeddingUpsertItem> items, CancellationToken cancellationToken = default)
+        {
+            // Group by DocumentId to minimize queries and optimize batching
+            var itemsByDocument = items
+                .GroupBy(i => i.DocumentId)
+                .ToList();
+
+            foreach (var documentGroup in itemsByDocument)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var documentId = documentGroup.Key;
+
+                // Prefetch existing embeddings for this document
+                var existing = await _context.Embeddings
+                    .Where(e => e.DocumentId == documentId)
+                    .Select(e => new { e.ChunkIndex, e.Id, e.ChunkHash })
+                    .ToListAsync(cancellationToken);
+
+                var existingByIndex = existing.ToDictionary(x => x.ChunkIndex, x => x);
+
+                var toInsert = new List<Embedding>();
+                foreach (var item in documentGroup)
+                {
+                    if (!existingByIndex.TryGetValue(item.ChunkIndex, out var existingRow))
+                    {
+                        // New embedding - add to insert batch
+                        toInsert.Add(new Embedding
+                        {
+                            Text = item.Text,
+                            EmbeddingData = ConvertToBlob(item.Vector),
+                            DocumentId = item.DocumentId,
+                            DocumentTitle = item.DocumentTitle ?? string.Empty,
+                            Owner = item.Owner,
+                            UserId = item.UserId, // Typically null for document-only embeddings
+                            ConversationId = item.ConversationId, // Typically null for document-only embeddings
+                            ChunkIndex = item.ChunkIndex,
+                            ChunkHash = item.ChunkHash,
+                            TrainingFolderName = item.TrainingFolderName
+                        });
+                    }
+                    else
+                    {
+                        // Update only if content changed (hash differs)
+                        if (existingRow.ChunkHash == null || !item.ChunkHash.SequenceEqual(existingRow.ChunkHash))
+                        {
+                            var entity = await _context.Embeddings.FirstAsync(e => e.Id == existingRow.Id, cancellationToken);
+                            entity.Text = item.Text;
+                            entity.EmbeddingData = ConvertToBlob(item.Vector);
+                            entity.DocumentTitle = item.DocumentTitle ?? entity.DocumentTitle;
+                            entity.Owner = item.Owner;
+                            entity.ChunkHash = item.ChunkHash;
+                            entity.TrainingFolderName = item.TrainingFolderName;
+                            // Note: UserId and ConversationId are typically not updated for document-only embeddings
+                        }
+                    }
+                }
+
+                // Bulk insert new embeddings for this document
+                if (toInsert.Count > 0)
+                {
+                    await _context.Embeddings.AddRangeAsync(toInsert, cancellationToken);
+                }
+            }
+
+            // Single save operation for all changes
+            await _context.SaveChangesAsync(cancellationToken);
+        }
     }
 }

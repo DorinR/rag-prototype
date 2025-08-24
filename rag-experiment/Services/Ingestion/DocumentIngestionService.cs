@@ -62,8 +62,8 @@ namespace rag_experiment.Services
             // Process the text
             var processedText = _textProcessor.ProcessText(text);
 
-            // Split into chunks
-            var chunks = _textChunker.ChunkText(processedText, maxChunkSize, overlap);
+            // Split into chunks using configured settings
+            var chunks = _textChunker.ChunkText(processedText);
 
             // Generate embeddings for each chunk
             var embeddings = await _embeddingGenerationService.GenerateEmbeddingsAsync(chunks);

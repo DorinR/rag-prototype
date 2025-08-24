@@ -306,12 +306,8 @@ namespace rag_experiment.Controllers
                         var processedText = _textProcessor.ProcessText(rawText);
                         var processedLength = processedText.Length;
 
-                        // Chunk the text using the same settings as document ingestion
-                        var chunks = _textChunker.ChunkText(
-                            processedText,
-                            _chunkingSettings.ChunkSize,
-                            _chunkingSettings.ChunkOverlap
-                        );
+                        // Chunk the text using configured settings
+                        var chunks = _textChunker.ChunkText(processedText);
 
                         // Estimate tokens using the same logic as OpenAI embedding service
                         // (1 token ≈ 4 characters)

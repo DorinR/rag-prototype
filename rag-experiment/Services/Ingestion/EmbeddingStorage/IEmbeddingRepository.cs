@@ -152,5 +152,16 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Task that completes when the batch upsert finishes.</returns>
         Task UpsertEmbeddingsAsync(IEnumerable<EmbeddingUpsertItem> items, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Upserts a batch of document-only embeddings for arbitrary datasets using DocumentId and ChunkIndex as uniqueness key.
+        /// This method is designed for system knowledge base or training data embeddings that are not user/conversation-scoped.
+        /// Implementations should insert missing rows and update existing rows only when content (e.g., ChunkHash or Vector) changed.
+        /// The operation SHOULD be executed in as few database roundtrips as possible (ideally 1 transaction/batch).
+        /// </summary>
+        /// <param name="items">Batch of document embedding items to upsert.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Task that completes when the batch upsert finishes.</returns>
+        Task UpsertDocumentEmbeddingsAsync(IEnumerable<EmbeddingUpsertItem> items, CancellationToken cancellationToken = default);
     }
 }

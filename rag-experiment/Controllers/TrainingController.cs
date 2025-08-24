@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using rag_experiment.Services;
 using rag_experiment.Models;
 using rag_experiment.Services.Ingestion.VectorStorage;
@@ -17,7 +18,9 @@ namespace rag_experiment.Controllers
         private readonly EmbeddingRepository _embeddingRepository;
         private readonly IEmbeddingGenerationService _openAiEmbeddingGenerationService;
         private readonly ITextProcessor _textProcessor;
+        private readonly ITextChunker _textChunker;
         private readonly AppDbContext _dbContext;
+        private readonly RagSettings _ragSettings;
 
         /// <summary>
         /// Initializes a new instance of the TrainingController
@@ -25,17 +28,23 @@ namespace rag_experiment.Controllers
         /// <param name="embeddingRepository">Repository for managing embeddings</param>
         /// <param name="openAiEmbeddingGenerationService">Service for generating embeddings</param>
         /// <param name="textProcessor">Service for text processing operations</param>
+        /// <param name="textChunker">Service for text chunking operations</param>
         /// <param name="dbContext">Database context for data operations</param>
+        /// <param name="ragSettings">RAG configuration settings</param>
         public TrainingController(
             EmbeddingRepository embeddingRepository,
             IEmbeddingGenerationService openAiEmbeddingGenerationService,
             ITextProcessor textProcessor,
-            AppDbContext dbContext)
+            ITextChunker textChunker,
+            AppDbContext dbContext,
+            IOptions<RagSettings> ragSettings)
         {
             _embeddingRepository = embeddingRepository;
             _openAiEmbeddingGenerationService = openAiEmbeddingGenerationService;
             _textProcessor = textProcessor;
+            _textChunker = textChunker;
             _dbContext = dbContext;
+            _ragSettings = ragSettings.Value;
         }
 
         /// <summary>
@@ -62,24 +71,13 @@ namespace rag_experiment.Controllers
                     return NotFound($"Training folder '{request.FolderName}' not found");
                 }
 
-                // Get all subdirectories within the training folder
-                var subDirectories = Directory.GetDirectories(trainingFolderPath);
+                var allTextFilePaths = Directory.GetFiles(trainingFolderPath, "*.txt", SearchOption.AllDirectories);
 
-                // Get TXT files only from subdirectories (not from the root training folder)
-                var txtFiles = new List<string>();
-                foreach (var subDirectory in subDirectories)
-                {
-                    var filesInSubDir = Directory.GetFiles(subDirectory, "*.txt", SearchOption.AllDirectories);
-                    txtFiles.AddRange(filesInSubDir);
-                }
-
-                var txtFilesArray = txtFiles.ToArray();
-
-                if (txtFilesArray.Length == 0)
+                if (allTextFilePaths.Length == 0)
                 {
                     return Ok(new
                     {
-                        message = "No TXT files found in subdirectories of the training folder",
+                        message = "No TXT files found in the training folder",
                         folderName = request.FolderName,
                         documentsProcessed = 0
                     });
@@ -90,8 +88,7 @@ namespace rag_experiment.Controllers
                 var processedFiles = new List<string>();
 
                 // Use null for system training data (no user or conversation association)
-
-                foreach (string filePath in txtFilesArray)
+                foreach (string filePath in allTextFilePaths)
                 {
                     string fileName = Path.GetFileName(filePath);
 
@@ -127,8 +124,8 @@ namespace rag_experiment.Controllers
                         // Process the text using the same pipeline as document ingestion
                         var processedText = _textProcessor.ProcessText(text);
 
-                        // Split into chunks (using default chunking settings)
-                        var chunks = SplitTextIntoChunks(processedText, 1000, 200); // 1000 char chunks with 200 char overlap
+                        // Split into chunks using configured settings and proper semantic chunking
+                        var chunks = _textChunker.ChunkText(processedText);
 
                         // Generate embeddings for each chunk
                         foreach (var chunk in chunks.Select((value, index) => new { value, index }))
@@ -183,39 +180,7 @@ namespace rag_experiment.Controllers
             }
         }
 
-        /// <summary>
-        /// Splits text into chunks with overlap for training purposes.
-        /// </summary>
-        /// <param name="text">The text to split into chunks</param>
-        /// <param name="chunkSize">Maximum size of each chunk in characters</param>
-        /// <param name="overlap">Number of characters to overlap between chunks</param>
-        /// <returns>List of text chunks</returns>
-        private List<string> SplitTextIntoChunks(string text, int chunkSize, int overlap)
-        {
-            var chunks = new List<string>();
 
-            if (string.IsNullOrEmpty(text))
-                return chunks;
-
-            int start = 0;
-            while (start < text.Length)
-            {
-                int end = Math.Min(start + chunkSize, text.Length);
-                string chunk = text.Substring(start, end - start);
-
-                if (!string.IsNullOrWhiteSpace(chunk))
-                {
-                    chunks.Add(chunk.Trim());
-                }
-
-                if (end >= text.Length)
-                    break;
-
-                start += chunkSize - overlap;
-            }
-
-            return chunks;
-        }
 
         /// <summary>
         /// Generates a SHA256 hash of the chunk text for change detection
