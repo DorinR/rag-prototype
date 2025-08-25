@@ -131,7 +131,7 @@ namespace rag_experiment.Controllers
                 // Format the retrieved passages
                 var retrievedResults = topKSimilarEmbeddings.Select(doc => new
                 {
-                    fullDocumentText = relatedDocuments.FirstOrDefault(d => d.Id == int.Parse(doc.DocumentId))?.DocumentText,
+                    fullDocumentText = doc.Text,
                     documentId = doc.DocumentId,
                     documentTitle = doc.DocumentTitle,
                     similarity = doc.Similarity
