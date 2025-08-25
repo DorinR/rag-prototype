@@ -95,13 +95,16 @@ namespace rag_experiment.Controllers
                     try
                     {
                         // Read text from TXT file
-                        string text = await System.IO.File.ReadAllTextAsync(filePath);
+                        string rawText = await System.IO.File.ReadAllTextAsync(filePath);
 
-                        if (string.IsNullOrWhiteSpace(text))
+                        if (string.IsNullOrWhiteSpace(rawText))
                         {
                             Console.WriteLine($"Warning: No text found in {fileName}");
                             continue;
                         }
+
+                        // Sanitize text to remove null bytes and problematic characters
+                        string text = SanitizeTextForDatabase(rawText);
 
                         // Create Document record in database
                         var document = new Document
@@ -112,7 +115,7 @@ namespace rag_experiment.Controllers
                             FileSize = new System.IO.FileInfo(filePath).Length,
                             FilePath = filePath,
                             Description = $"Training document from {request.FolderName} folder",
-                            DocumentText = text, // Store the full extracted text
+                            DocumentText = text, // Store the full sanitized text
                             TrainingFolderName = request.FolderName,
                             ConversationId = null,
                             UploadedAt = DateTime.UtcNow
@@ -127,29 +130,37 @@ namespace rag_experiment.Controllers
                         // Split into chunks using configured settings and proper semantic chunking
                         var chunks = _textChunker.ChunkText(processedText);
 
-                        // Generate embeddings for each chunk
-                        foreach (var chunk in chunks.Select((value, index) => new { value, index }))
+                        if (chunks.Count > 0)
                         {
-                            var embedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(chunk.value);
+                            // Generate embeddings for all chunks in batch
+                            var embeddingResults = await _openAiEmbeddingGenerationService.GenerateEmbeddingsAsync(chunks);
 
-                            // Generate hash of chunk text for change detection
-                            var chunkHash = GenerateChunkHash(chunk.value);
+                            // Prepare batch upsert items
+                            var upsertItems = new List<EmbeddingUpsertItem>();
+                            for (var chunkIndex = 0; chunkIndex < chunks.Count; chunkIndex++)
+                            {
+                                var chunkText = chunks[chunkIndex];
+                                var embedding = embeddingResults[chunkText];
+                                var chunkHash = GenerateChunkHash(chunkText);
 
-                            // Store as SystemKnowledgeBase embedding with real document ID
-                            _embeddingRepository.AddEmbedding(
-                                text: chunk.value,
-                                embeddingData: embedding,
-                                documentId: document.Id.ToString(), // Use real document ID
-                                userId: null, // No user association for system training data
-                                conversationId: null, // No conversation association for system training data
-                                documentTitle: fileName,
-                                owner: EmbeddingOwner.SystemKnowledgeBase,
-                                chunkIndex: chunk.index,
-                                chunkHash: chunkHash,
-                                trainingFolderName: request.FolderName
-                            );
+                                upsertItems.Add(new EmbeddingUpsertItem
+                                {
+                                    Text = chunkText,
+                                    Vector = embedding,
+                                    Owner = EmbeddingOwner.SystemKnowledgeBase,
+                                    UserId = null, // No user association for system training data
+                                    ConversationId = null, // No conversation association for system training data
+                                    DocumentId = document.Id.ToString(),
+                                    ChunkIndex = chunkIndex,
+                                    ChunkHash = chunkHash,
+                                    DocumentTitle = fileName,
+                                    TrainingFolderName = request.FolderName
+                                });
+                            }
 
-                            totalChunks++;
+                            // Batch upsert all embeddings for this document
+                            await _embeddingRepository.UpsertDocumentEmbeddingsAsync(upsertItems);
+                            totalChunks += chunks.Count;
                         }
 
                         documentsProcessed++;
@@ -181,6 +192,44 @@ namespace rag_experiment.Controllers
         }
 
 
+
+        /// <summary>
+        /// Sanitizes text by removing null bytes and other problematic characters that can cause PostgreSQL encoding issues
+        /// </summary>
+        /// <param name="text">Text to sanitize</param>
+        /// <returns>Sanitized text safe for PostgreSQL storage</returns>
+        private string SanitizeTextForDatabase(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return text;
+
+            // Remove null bytes and other control characters that cause PostgreSQL encoding issues
+            var sanitized = text
+                .Replace("\0", "") // Remove null bytes
+                .Replace("\uFFFE", "") // Remove byte order mark
+                .Replace("\uFFFF", ""); // Remove invalid Unicode character
+
+            // Remove other problematic control characters except common whitespace
+            var result = new StringBuilder();
+            foreach (char c in sanitized)
+            {
+                // Keep printable characters, common whitespace (space, tab, newline, carriage return)
+                if (char.IsControl(c))
+                {
+                    if (c == '\t' || c == '\n' || c == '\r')
+                    {
+                        result.Append(c);
+                    }
+                    // Skip other control characters
+                }
+                else
+                {
+                    result.Append(c);
+                }
+            }
+
+            return result.ToString();
+        }
 
         /// <summary>
         /// Generates a SHA256 hash of the chunk text for change detection
