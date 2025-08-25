@@ -192,8 +192,23 @@ namespace rag_experiment.Controllers
                 Console.WriteLine($"[QueryKnowledgeBase] STEP 8 - Context built: TotalLength={combinedContext.Length}, DocumentSections={retrievedResults.Count}");
 
                 // Generate LLM response using the combined context
+                Console.WriteLine($"[QueryKnowledgeBase] STEP 9a - About to call LLM service:");
+                Console.WriteLine($"[QueryKnowledgeBase] STEP 9a - Query: '{request.Query}'");
+                Console.WriteLine($"[QueryKnowledgeBase] STEP 9a - Context length: {combinedContext.Length} characters");
+                Console.WriteLine($"[QueryKnowledgeBase] STEP 9a - Context preview (first 200 chars): '{(combinedContext.Length > 200 ? combinedContext.Substring(0, 200) + "..." : combinedContext)}'");
+
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
-                Console.WriteLine($"[QueryKnowledgeBase] STEP 9 - LLM response generated: Success={!string.IsNullOrEmpty(llmResponse)}, ResponseLength={llmResponse?.Length ?? 0}");
+                stopwatch.Stop();
+
+                Console.WriteLine($"[QueryKnowledgeBase] STEP 9b - LLM service call completed in {stopwatch.ElapsedMilliseconds}ms");
+                Console.WriteLine($"[QueryKnowledgeBase] STEP 9b - Response received: Success={!string.IsNullOrEmpty(llmResponse)}, ResponseLength={llmResponse?.Length ?? 0}");
+                Console.WriteLine($"[QueryKnowledgeBase] STEP 9b - FULL LLM RESPONSE: '{llmResponse ?? "NULL"}'");
+
+                if (string.IsNullOrEmpty(llmResponse))
+                {
+                    Console.WriteLine($"[QueryKnowledgeBase] WARNING - LLM service returned null or empty response");
+                }
 
                 // Return the formatted response with both retrieved chunks and LLM answer
                 var response = new
