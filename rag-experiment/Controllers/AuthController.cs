@@ -164,22 +164,29 @@ namespace rag_experiment.Controllers
         private void SetTokenCookies(string jwtToken, string refreshToken)
         {
             // For cross-origin cookies, we need SameSite=None and Secure=true
-            // In development, we might need to handle localhost scenarios
+            // In development with HTTP, we need Secure=false for Safari compatibility
             var isProduction = !_environment.IsDevelopment();
+            var isHttpsRequest = Request.IsHttps;
+
+            // Only use Secure=true if we're in production OR using HTTPS in development
+            var useSecureCookies = isProduction || isHttpsRequest;
+
+            // If using HTTP in development, use SameSite=Lax for better browser compatibility
+            var sameSiteMode = useSecureCookies ? SameSiteMode.None : SameSiteMode.Lax;
 
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true, // Required for SameSite=None in production
-                SameSite = SameSiteMode.None, // Required for cross-origin requests
+                Secure = useSecureCookies,
+                SameSite = sameSiteMode,
                 Expires = DateTime.UtcNow.AddDays(7)
             };
 
             Response.Cookies.Append("token", jwtToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true, // Required for SameSite=None in production
-                SameSite = SameSiteMode.None, // Required for cross-origin requests
+                Secure = useSecureCookies,
+                SameSite = sameSiteMode,
                 Expires = DateTime.UtcNow.AddMinutes(15) // Match JWT token expiry
             });
 
