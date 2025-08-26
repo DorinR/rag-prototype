@@ -131,6 +131,7 @@ namespace rag_experiment.Controllers
                 // Format the retrieved passages
                 var retrievedResults = topKSimilarEmbeddings.Select(doc => new
                 {
+                    // fullDocumentText = relatedDocuments.FirstOrDefault(d => d.Id == int.Parse(doc.DocumentId))?.DocumentText,
                     fullDocumentText = doc.Text,
                     documentId = doc.DocumentId,
                     documentTitle = doc.DocumentTitle,
@@ -146,6 +147,9 @@ namespace rag_experiment.Controllers
                     contextBuilder.AppendLine();
                 }
                 string combinedContext = contextBuilder.ToString();
+
+                Console.WriteLine($"Combined context: {combinedContext.Length}");
+                Console.WriteLine($"Estimated Tokens: {combinedContext.Length / 4}");
 
                 // Generate LLM response using the combined context
                 string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
