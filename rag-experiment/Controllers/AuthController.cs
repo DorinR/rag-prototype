@@ -88,6 +88,13 @@ namespace rag_experiment.Controllers
         public async Task<IActionResult> RefreshToken()
         {
             var refreshToken = Request.Cookies["refreshToken"];
+
+            // Debug logging for cookie reception
+            _logger.LogInformation("Refresh token request - Has refresh cookie: {HasCookie}, All cookies: {Cookies}, UserAgent: {UserAgent}",
+                !string.IsNullOrEmpty(refreshToken),
+                string.Join(", ", Request.Cookies.Select(c => $"{c.Key}={(!string.IsNullOrEmpty(c.Value) ? "***" : "empty")}")),
+                Request.Headers.UserAgent);
+
             if (string.IsNullOrEmpty(refreshToken))
             {
                 return BadRequest(new AuthResponse { Success = false, Message = "No refresh token provided" });
@@ -182,6 +189,10 @@ namespace rag_experiment.Controllers
                 SameSite = sameSiteMode,
                 Expires = DateTime.UtcNow.AddDays(7)
             };
+
+            // Debug logging for cookie settings
+            _logger.LogInformation("Setting cookies - Environment: {Environment}, HTTPS: {IsHttps}, Secure: {Secure}, SameSite: {SameSite}, UserAgent: {UserAgent}",
+                _environment.EnvironmentName, Request.IsHttps, useSecureCookies, sameSiteMode, Request.Headers.UserAgent);
 
             Response.Cookies.Append("token", jwtToken, new CookieOptions
             {
