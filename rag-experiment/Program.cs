@@ -17,7 +17,6 @@ using Microsoft.Extensions.Options;
 using rag_experiment.Repositories;
 using rag_experiment.Repositories.Documents;
 using rag_experiment.Services.Ingestion.TextExtraction;
-using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -128,12 +127,18 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // Configure to read JWT token from cookie
+    // Configure to read JWT token from Authorization header only
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
-            context.Token = context.Request.Cookies["token"];
+            // Read token from Authorization header (standard JWT approach)
+            var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                context.Token = authHeader.Substring("Bearer ".Length);
+            }
+
             return Task.CompletedTask;
         }
     };
@@ -157,8 +162,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowAnyHeader();
+        // Removed .AllowCredentials() since we're using Authorization headers instead of cookies
     });
 });
 
@@ -308,13 +313,6 @@ if (!skipMigrations)
         }
     }
 }
-
-// Configure forwarded headers for reverse proxy scenarios (Railway, Vercel, etc.)
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor |
-                      Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
-});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

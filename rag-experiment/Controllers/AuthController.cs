@@ -51,10 +51,17 @@ namespace rag_experiment.Controllers
             user.RefreshTokens.Add(refreshToken);
             await _context.SaveChangesAsync();
 
-            // Set cookies
-            SetTokenCookies(jwtToken, refreshToken.Token);
+            // Always return tokens in response body (no more cookies!)
+            var responseWithTokens = new
+            {
+                response.Success,
+                response.Message,
+                response.User,
+                AccessToken = jwtToken,
+                RefreshToken = refreshToken.Token
+            };
 
-            return Ok(response);
+            return Ok(responseWithTokens);
         }
 
         [HttpPost("login")]
@@ -78,29 +85,28 @@ namespace rag_experiment.Controllers
             user.RefreshTokens.Add(refreshToken);
             await _context.SaveChangesAsync();
 
-            // Set cookies
-            SetTokenCookies(jwtToken, refreshToken.Token);
+            // Always return tokens in response body (no more cookies!)
+            var responseWithTokens = new
+            {
+                response.Success,
+                response.Message,
+                response.User,
+                AccessToken = jwtToken,
+                RefreshToken = refreshToken.Token
+            };
 
-            return Ok(response);
+            return Ok(responseWithTokens);
         }
 
         [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken()
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
-            var refreshToken = Request.Cookies["refreshToken"];
-
-            // Debug logging for cookie reception
-            _logger.LogInformation("Refresh token request - Has refresh cookie: {HasCookie}, All cookies: {Cookies}, UserAgent: {UserAgent}",
-                !string.IsNullOrEmpty(refreshToken),
-                string.Join(", ", Request.Cookies.Select(c => $"{c.Key}={(!string.IsNullOrEmpty(c.Value) ? "***" : "empty")}")),
-                Request.Headers.UserAgent);
-
-            if (string.IsNullOrEmpty(refreshToken))
+            if (string.IsNullOrEmpty(request?.RefreshToken))
             {
                 return BadRequest(new AuthResponse { Success = false, Message = "No refresh token provided" });
             }
 
-            var response = await _authService.RefreshTokenAsync(refreshToken);
+            var response = await _authService.RefreshTokenAsync(request.RefreshToken);
             if (!response.Success)
             {
                 return BadRequest(response);
@@ -121,33 +127,35 @@ namespace rag_experiment.Controllers
                 return StatusCode(500, new AuthResponse { Success = false, Message = "No refresh token generated" });
             }
 
-            // Set new cookies
-            SetTokenCookies(jwtToken, response.RefreshToken);
+            // Return new tokens in response body
+            var responseWithTokens = new
+            {
+                response.Success,
+                response.Message,
+                response.User,
+                AccessToken = jwtToken,
+                RefreshToken = response.RefreshToken
+            };
 
-            return Ok(response);
+            return Ok(responseWithTokens);
         }
 
         [Authorize]
         [HttpPost("revoke-token")]
-        public async Task<IActionResult> RevokeToken()
+        public async Task<IActionResult> RevokeToken([FromBody] RefreshTokenRequest request)
         {
-            var refreshToken = Request.Cookies["refreshToken"];
-            if (string.IsNullOrEmpty(refreshToken))
+            if (string.IsNullOrEmpty(request?.RefreshToken))
             {
-                return BadRequest(new { message = "Token is required" });
+                return BadRequest(new { message = "Refresh token is required" });
             }
 
-            var success = await _authService.RevokeTokenAsync(refreshToken);
+            var success = await _authService.RevokeTokenAsync(request.RefreshToken);
             if (!success)
             {
                 return BadRequest(new { message = "Token revocation failed" });
             }
 
-            // Remove cookies
-            Response.Cookies.Delete("token");
-            Response.Cookies.Delete("refreshToken");
-
-            return Ok(new { message = "Token revoked" });
+            return Ok(new { message = "Token revoked successfully" });
         }
 
         [HttpPost("reset-password")]
@@ -168,41 +176,6 @@ namespace rag_experiment.Controllers
             return Ok(response);
         }
 
-        private void SetTokenCookies(string jwtToken, string refreshToken)
-        {
-            // For cross-origin cookies, we need SameSite=None and Secure=true
-            // In development with HTTP, we need Secure=false for Safari compatibility
-            var isProduction = !_environment.IsDevelopment();
-            var isHttpsRequest = Request.IsHttps;
 
-            // Only use Secure=true if we're in production OR using HTTPS in development
-            var useSecureCookies = isProduction || isHttpsRequest;
-
-            // For Safari compatibility: always use Lax in production, None only in dev
-            var sameSiteMode = isProduction ? SameSiteMode.Lax : SameSiteMode.None;
-            // var sameSiteMode = SameSiteMode.None;
-
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = useSecureCookies,
-                SameSite = sameSiteMode,
-                Expires = DateTime.UtcNow.AddDays(7)
-            };
-
-            // Debug logging for cookie settings
-            _logger.LogInformation("Setting cookies - Environment: {Environment}, HTTPS: {IsHttps}, Secure: {Secure}, SameSite: {SameSite}, UserAgent: {UserAgent}",
-                _environment.EnvironmentName, Request.IsHttps, useSecureCookies, sameSiteMode, Request.Headers.UserAgent);
-
-            Response.Cookies.Append("token", jwtToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = useSecureCookies,
-                SameSite = sameSiteMode,
-                Expires = DateTime.UtcNow.AddMinutes(15) // Match JWT token expiry
-            });
-
-            Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
-        }
     }
 }

@@ -42,4 +42,10 @@ namespace rag_experiment.Models.Auth
         [MinLength(6)]
         public string NewPassword { get; set; }
     }
+
+    public class RefreshTokenRequest
+    {
+        [Required]
+        public string RefreshToken { get; set; }
+    }
 }
