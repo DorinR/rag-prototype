@@ -17,6 +17,7 @@ using Microsoft.Extensions.Options;
 using rag_experiment.Repositories;
 using rag_experiment.Repositories.Documents;
 using rag_experiment.Services.Ingestion.TextExtraction;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -307,6 +308,13 @@ if (!skipMigrations)
         }
     }
 }
+
+// Configure forwarded headers for reverse proxy scenarios (Railway, Vercel, etc.)
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
+                      Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

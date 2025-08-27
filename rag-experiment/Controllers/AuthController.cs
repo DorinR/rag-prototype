@@ -178,8 +178,8 @@ namespace rag_experiment.Controllers
             // Only use Secure=true if we're in production OR using HTTPS in development
             var useSecureCookies = isProduction || isHttpsRequest;
 
-            // If using HTTP in development, use SameSite=Lax for better browser compatibility
-            var sameSiteMode = useSecureCookies ? SameSiteMode.None : SameSiteMode.Lax;
+            // For Safari compatibility: always use Lax in production, None only in dev
+            var sameSiteMode = isProduction ? SameSiteMode.Lax : SameSiteMode.None;
             // var sameSiteMode = SameSiteMode.None;
 
             var cookieOptions = new CookieOptions
