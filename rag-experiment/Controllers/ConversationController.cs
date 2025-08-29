@@ -21,37 +21,38 @@ namespace rag_experiment.Controllers
             _userContext = userContext;
         }
 
-        [HttpPost]
-        public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
-        {
-            try
-            {
-                var userId = _userContext.GetCurrentUserId();
+        // Disable regular conversations for now.
+        // [HttpPost]
+        // public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
+        // {
+        //     try
+        //     {
+        //         var userId = _userContext.GetCurrentUserId();
 
-                var conversation = new Conversation
-                {
-                    Title = request.Title,
-                    UserId = userId,
-                    Type = ConversationType.DocumentQuery
-                };
+        //         var conversation = new Conversation
+        //         {
+        //             Title = request.Title,
+        //             UserId = userId,
+        //             Type = ConversationType.DocumentQuery
+        //         };
 
-                _dbContext.Conversations.Add(conversation);
-                await _dbContext.SaveChangesAsync();
+        //         _dbContext.Conversations.Add(conversation);
+        //         await _dbContext.SaveChangesAsync();
 
-                return Ok(new
-                {
-                    id = conversation.Id,
-                    title = conversation.Title,
-                    type = conversation.Type.ToString(),
-                    createdAt = conversation.CreatedAt,
-                    updatedAt = conversation.UpdatedAt
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred while creating the conversation: {ex.Message}");
-            }
-        }
+        //         return Ok(new
+        //         {
+        //             id = conversation.Id,
+        //             title = conversation.Title,
+        //             type = conversation.Type.ToString(),
+        //             createdAt = conversation.CreatedAt,
+        //             updatedAt = conversation.UpdatedAt
+        //         });
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         return StatusCode(500, $"An error occurred while creating the conversation: {ex.Message}");
+        //     }
+        // }
 
         /// <summary>
         /// Creates a new conversation for querying the general knowledge base

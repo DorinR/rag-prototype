@@ -54,6 +54,29 @@ namespace rag_experiment.Services
         }
 
         /// <summary>
+        /// Process a query with conversation history context through OpenAI preprocessing with fallback to manual methods
+        /// </summary>
+        public async Task<string> ProcessQueryAsync(string query, string conversationHistory)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return query;
+
+            try
+            {
+                // Use OpenAI to preprocess the query with conversation context
+                return await ProcessQueryWithOpenAIAndHistoryAsync(query, conversationHistory);
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                _logger?.LogWarning(ex, "Error calling OpenAI API for query preprocessing with history. Falling back to manual processing.");
+
+                // Fall back to manual processing
+                return await ProcessQueryManuallyAsync(query);
+            }
+        }
+
+        /// <summary>
         /// Uses OpenAI to extract the core matter from the user's query
         /// </summary>
         private async Task<string> ProcessQueryWithOpenAIAsync(string query)
@@ -95,6 +118,60 @@ namespace rag_experiment.Services
                 _logger?.LogWarning("OpenAI returned empty response for query preprocessing. Falling back to original query.");
                 return query;
             }
+
+            return processedQuery;
+        }
+
+        /// <summary>
+        /// Uses OpenAI to reformulate the user's query considering conversation history context
+        /// </summary>
+        private async Task<string> ProcessQueryWithOpenAIAndHistoryAsync(string query, string conversationHistory)
+        {
+            var chatMessage = new ChatMessage
+            {
+                Messages = new List<Message>
+                {
+                    new Message
+                    {
+                        Role = "system",
+                        Content = "You are an expert at understanding conversational context and reformulating search queries. " +
+                                 "Given a conversation history and a user's current query, reformulate the query to be more effective for semantic search. " +
+                                 "Consider the conversation context to understand what the user is really asking for. " +
+                                 "Remove question words (e.g., 'what,' 'how,' 'why'), resolve pronouns using conversation context, " +
+                                 "and focus on the core concepts that should be searched for. " +
+                                 "If the user is asking a follow-up question that refers to previous topics, incorporate those topics into the search query. " +
+                                 "Return only the reformulated search query as a concise phrase or set of keywords."
+                    },
+                    new Message
+                    {
+                        Role = "user",
+                        Content = $"Conversation History:\n{conversationHistory}\n\nCurrent Query: {query}\n\nReformulate this query for semantic search considering the conversation context:"
+                    }
+                },
+                Model = _openAiModel,
+                MaxTokens = 150,
+                Temperature = 0.1
+            };
+
+            var jsonContent = JsonSerializer.Serialize(chatMessage);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync("https://api.openai.com/v1/chat/completions", content);
+
+            response.EnsureSuccessStatusCode();
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var chatResponse = JsonSerializer.Deserialize<ChatResponse>(responseContent);
+
+            var processedQuery = chatResponse?.Choices?.FirstOrDefault()?.Message?.Content?.Trim();
+
+            if (string.IsNullOrEmpty(processedQuery))
+            {
+                _logger?.LogWarning("OpenAI returned empty response for query preprocessing with history. Falling back to original query.");
+                return query;
+            }
+
+            _logger?.LogInformation("Query reformulated with conversation context: '{OriginalQuery}' -> '{ProcessedQuery}'", query, processedQuery);
 
             return processedQuery;
         }

@@ -16,6 +16,7 @@ using rag_experiment.Services.BackgroundJobs;
 using Microsoft.Extensions.Options;
 using rag_experiment.Repositories;
 using rag_experiment.Repositories.Documents;
+using rag_experiment.Repositories.Conversations;
 using rag_experiment.Services.Ingestion.TextExtraction;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -209,6 +210,7 @@ builder.Services.AddScoped<ILlmService, OpenAILlmService>();
 builder.Services.AddSingleton<IDocumentProcessingStateRepository, InMemoryDocumentProcessingStateRepository>();
 builder.Services.AddScoped<IEmbeddingRepository, EmbeddingRepository>();
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
+builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 
 
 

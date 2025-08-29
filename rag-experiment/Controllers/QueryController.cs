@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using System.Text;
 using rag_experiment.Services.Ingestion.VectorStorage;
 using rag_experiment.Repositories.Documents;
+using rag_experiment.Repositories.Conversations;
 
 namespace rag_experiment.Controllers
 {
@@ -17,6 +18,7 @@ namespace rag_experiment.Controllers
         private readonly IQueryPreprocessor _queryPreprocessor;
         private readonly ILlmService _llmService;
         private readonly IDocumentRepository _documentRepository;
+        private readonly IConversationRepository _conversationRepository;
 
         public QueryController(
             EmbeddingRepository embeddingRepository,
@@ -25,13 +27,48 @@ namespace rag_experiment.Controllers
             ILlmService llmService,
             ITextProcessor textProcessor,
             AppDbContext dbContext,
-            IDocumentRepository documentRepository)
+            IDocumentRepository documentRepository,
+            IConversationRepository conversationRepository)
         {
             _embeddingRepository = embeddingRepository;
             _openAiEmbeddingGenerationService = openAiEmbeddingGenerationService;
             _queryPreprocessor = queryPreprocessor;
             _llmService = llmService;
             _documentRepository = documentRepository;
+            _conversationRepository = conversationRepository;
+        }
+
+        /// <summary>
+        /// Formats conversation messages into a readable context string for the LLM
+        /// </summary>
+        /// <param name="messages">List of conversation messages</param>
+        /// <returns>Formatted conversation history string</returns>
+        private string FormatConversationHistory(List<Message> messages)
+        {
+            if (!messages.Any())
+                return string.Empty;
+
+            var conversationBuilder = new StringBuilder();
+            conversationBuilder.AppendLine("=== CONVERSATION HISTORY ===");
+
+            foreach (var message in messages)
+            {
+                string roleLabel = message.Role switch
+                {
+                    MessageRole.User => "USER",
+                    MessageRole.Assistant => "ASSISTANT",
+                    MessageRole.System => "SYSTEM",
+                    _ => "UNKNOWN"
+                };
+
+                conversationBuilder.AppendLine($"[{roleLabel}]: {message.Content}");
+                conversationBuilder.AppendLine();
+            }
+
+            conversationBuilder.AppendLine("=== END CONVERSATION HISTORY ===");
+            conversationBuilder.AppendLine();
+
+            return conversationBuilder.ToString();
         }
 
         [HttpPost("query")]
@@ -49,8 +86,14 @@ namespace rag_experiment.Controllers
 
             try
             {
-                // Pre-process the query
-                string processedQuery = await _queryPreprocessor.ProcessQueryAsync(request.Query);
+                // Get conversation history
+                var conversationMessages = await _conversationRepository.GetMessagesAsync(request.ConversationId);
+                var conversationHistory = FormatConversationHistory(conversationMessages);
+
+                // Pre-process the query with conversation context
+                string processedQuery = string.IsNullOrEmpty(conversationHistory)
+                    ? await _queryPreprocessor.ProcessQueryAsync(request.Query)
+                    : await _queryPreprocessor.ProcessQueryAsync(request.Query, conversationHistory);
 
                 // Generate embedding for the processed query
                 var queryEmbedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
@@ -68,8 +111,17 @@ namespace rag_experiment.Controllers
                     similarity = doc.Similarity
                 }).ToList();
 
-                // Combine the top chunks into a single context string
+                // Combine conversation history and document chunks into a single context string
                 var contextBuilder = new StringBuilder();
+
+                // Add conversation history first
+                if (!string.IsNullOrEmpty(conversationHistory))
+                {
+                    contextBuilder.AppendLine(conversationHistory);
+                }
+
+                // Add retrieved document chunks
+                contextBuilder.AppendLine("=== RELEVANT DOCUMENTS ===");
                 foreach (var doc in retrievedResults)
                 {
                     contextBuilder.AppendLine($"--- {doc.documentTitle} ---");
@@ -78,7 +130,7 @@ namespace rag_experiment.Controllers
                 }
                 string combinedContext = contextBuilder.ToString();
 
-                // Generate LLM response using the combined context
+                // Generate LLM response using the combined context (conversation + documents)
                 string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
 
                 // Return the formatted response with both retrieved chunks and LLM answer
@@ -112,8 +164,14 @@ namespace rag_experiment.Controllers
 
             try
             {
-                // Pre-process the query
-                string processedQuery = await _queryPreprocessor.ProcessQueryAsync(request.Query);
+                // Get conversation history
+                var conversationMessages = await _conversationRepository.GetMessagesAsync(request.ConversationId);
+                var conversationHistory = FormatConversationHistory(conversationMessages);
+
+                // Pre-process the query with conversation context
+                string processedQuery = string.IsNullOrEmpty(conversationHistory)
+                    ? await _queryPreprocessor.ProcessQueryAsync(request.Query)
+                    : await _queryPreprocessor.ProcessQueryAsync(request.Query, conversationHistory);
 
                 // Generate embedding for the processed query
                 var queryEmbedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
@@ -138,8 +196,17 @@ namespace rag_experiment.Controllers
                     similarity = doc.Similarity
                 }).ToList();
 
-                // Combine the top chunks into a single context string
+                // Combine conversation history and document chunks into a single context string
                 var contextBuilder = new StringBuilder();
+
+                // Add conversation history first
+                if (!string.IsNullOrEmpty(conversationHistory))
+                {
+                    contextBuilder.AppendLine(conversationHistory);
+                }
+
+                // Add retrieved document chunks
+                contextBuilder.AppendLine("=== KNOWLEDGE BASE DOCUMENTS ===");
                 foreach (var doc in retrievedResults)
                 {
                     contextBuilder.AppendLine($"--- {doc.documentTitle} ---");
@@ -151,7 +218,7 @@ namespace rag_experiment.Controllers
                 Console.WriteLine($"Combined context: {combinedContext.Length}");
                 Console.WriteLine($"Estimated Tokens: {combinedContext.Length / 4}");
 
-                // Generate LLM response using the combined context
+                // Generate LLM response using the combined context (conversation + knowledge base)
                 string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
 
                 // Return the formatted response with both retrieved chunks and LLM answer
