@@ -109,6 +109,8 @@ namespace rag_experiment.Controllers
                     return NotFound("Conversation not found");
 
                 var messages = await _dbContext.Messages
+                    .Include(m => m.Sources)
+                        .ThenInclude(s => s.Document)
                     .Where(m => m.ConversationId == conversationId)
                     .OrderBy(m => m.Timestamp)
                     .Select(m => new
@@ -117,7 +119,15 @@ namespace rag_experiment.Controllers
                         m.Role,
                         m.Content,
                         m.Timestamp,
-                        m.Metadata
+                        m.Metadata,
+                        Sources = m.Sources.OrderBy(s => s.Order).Select(s => new
+                        {
+                            s.DocumentId,
+                            DocumentTitle = s.Document.OriginalFileName,
+                            FileName = s.Document.FileName,
+                            s.RelevanceScore,
+                            s.ChunksUsed
+                        })
                     })
                     .ToListAsync();
 

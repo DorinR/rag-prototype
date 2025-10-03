@@ -131,6 +131,8 @@ namespace rag_experiment.Controllers
                 var conversation = await _dbContext.Conversations
                     .Include(c => c.Documents)
                     .Include(c => c.Messages)
+                        .ThenInclude(m => m.Sources)
+                            .ThenInclude(s => s.Document)
                     .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
 
                 if (conversation == null)
@@ -158,7 +160,15 @@ namespace rag_experiment.Controllers
                         m.Role,
                         m.Content,
                         m.Timestamp,
-                        m.Metadata
+                        m.Metadata,
+                        Sources = m.Sources.OrderBy(s => s.Order).Select(s => new
+                        {
+                            s.DocumentId,
+                            DocumentTitle = s.Document.OriginalFileName,
+                            FileName = s.Document.FileName,
+                            s.RelevanceScore,
+                            s.ChunksUsed
+                        })
                     })
                 });
             }

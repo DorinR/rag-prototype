@@ -20,10 +20,10 @@ namespace rag_experiment.Repositories.Conversations
         }
 
         /// <summary>
-        /// Retrieves all messages for a specific conversation
+        /// Retrieves all messages for a specific conversation with their source citations
         /// </summary>
         /// <param name="conversationId">The ID of the conversation</param>
-        /// <returns>List of messages ordered by timestamp, or empty list if conversation not found</returns>
+        /// <returns>List of messages with sources ordered by timestamp, or empty list if conversation not found</returns>
         public async Task<List<Message>> GetMessagesAsync(int conversationId)
         {
             var userId = _userContext.GetCurrentUserId();
@@ -35,8 +35,10 @@ namespace rag_experiment.Repositories.Conversations
             if (!conversationExists)
                 return new List<Message>();
 
-            // Get all messages for the conversation ordered by timestamp
+            // Get all messages for the conversation with their sources, ordered by timestamp
             var messages = await _dbContext.Messages
+                .Include(m => m.Sources)
+                    .ThenInclude(s => s.Document)
                 .Where(m => m.ConversationId == conversationId)
                 .OrderBy(m => m.Timestamp)
                 .ToListAsync();
