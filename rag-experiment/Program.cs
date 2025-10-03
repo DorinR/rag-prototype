@@ -212,6 +212,10 @@ builder.Services.AddScoped<IEmbeddingRepository, EmbeddingRepository>();
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 
+// Register Query Intent Classification and Adaptive Retrieval services
+builder.Services.AddScoped<rag_experiment.Services.Query.IQueryIntentClassifier, rag_experiment.Services.Query.QueryIntentClassifier>();
+builder.Services.AddScoped<rag_experiment.Services.Query.IAdaptiveRetrievalStrategy, rag_experiment.Services.Query.AdaptiveRetrievalStrategy>();
+
 
 
 // Register AppDbContext with PostgreSQL connection

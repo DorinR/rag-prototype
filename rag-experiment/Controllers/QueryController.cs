@@ -6,6 +6,7 @@ using System.Text;
 using rag_experiment.Services.Ingestion.VectorStorage;
 using rag_experiment.Repositories.Documents;
 using rag_experiment.Repositories.Conversations;
+using rag_experiment.Services.Query;
 
 namespace rag_experiment.Controllers
 {
@@ -19,6 +20,9 @@ namespace rag_experiment.Controllers
         private readonly ILlmService _llmService;
         private readonly IDocumentRepository _documentRepository;
         private readonly IConversationRepository _conversationRepository;
+        private readonly IQueryIntentClassifier _queryIntentClassifier;
+        private readonly IAdaptiveRetrievalStrategy _adaptiveRetrievalStrategy;
+        private readonly ILogger<QueryController> _logger;
 
         public QueryController(
             EmbeddingRepository embeddingRepository,
@@ -28,7 +32,10 @@ namespace rag_experiment.Controllers
             ITextProcessor textProcessor,
             AppDbContext dbContext,
             IDocumentRepository documentRepository,
-            IConversationRepository conversationRepository)
+            IConversationRepository conversationRepository,
+            IQueryIntentClassifier queryIntentClassifier,
+            IAdaptiveRetrievalStrategy adaptiveRetrievalStrategy,
+            ILogger<QueryController> logger)
         {
             _embeddingRepository = embeddingRepository;
             _openAiEmbeddingGenerationService = openAiEmbeddingGenerationService;
@@ -36,6 +43,9 @@ namespace rag_experiment.Controllers
             _llmService = llmService;
             _documentRepository = documentRepository;
             _conversationRepository = conversationRepository;
+            _queryIntentClassifier = queryIntentClassifier;
+            _adaptiveRetrievalStrategy = adaptiveRetrievalStrategy;
+            _logger = logger;
         }
 
         /// <summary>
@@ -168,6 +178,18 @@ namespace rag_experiment.Controllers
                 var conversationMessages = await _conversationRepository.GetMessagesAsync(request.ConversationId);
                 var conversationHistory = FormatConversationHistory(conversationMessages);
 
+                // 1. Classify query intent for adaptive retrieval
+                var intentResult = await _queryIntentClassifier.ClassifyQueryAsync(request.Query);
+                _logger.LogInformation("Query intent classified as {Intent}: {Reasoning}",
+                    intentResult.Intent, intentResult.Reasoning);
+
+                // 2. Get retrieval configuration based on intent
+                var retrievalConfig = _adaptiveRetrievalStrategy.GetConfigForIntent(intentResult.Intent, request.Query);
+
+                // Allow manual override via request.Limit if provided
+                var maxK = retrievalConfig.MaxK;
+                var minSimilarity = retrievalConfig.MinSimilarity;
+
                 // Pre-process the query with conversation context
                 string processedQuery = string.IsNullOrEmpty(conversationHistory)
                     ? await _queryPreprocessor.ProcessQueryAsync(request.Query)
@@ -176,20 +198,39 @@ namespace rag_experiment.Controllers
                 // Generate embedding for the processed query
                 var queryEmbedding = await _openAiEmbeddingGenerationService.GenerateEmbeddingAsync(processedQuery);
 
-                // get the k most similar documents
-                var limit = request.Limit > 0 ? request.Limit : 10;
-                var topKSimilarEmbeddings = await _embeddingRepository.FindSimilarEmbeddingsAsync(queryEmbedding, limit);
+                // 3. Adaptive retrieval with threshold
+                var topKSimilarEmbeddings = await _embeddingRepository.FindSimilarEmbeddingsAdaptiveAsync(
+                    queryEmbedding,
+                    maxK,
+                    minSimilarity);
 
-                // Get the IDs of all of the documents from the top-K embeddings.
-                var relatedDocumentsIds = topKSimilarEmbeddings.Select(doc => doc.DocumentId).Distinct().ToList();
+                _logger.LogInformation("Retrieved {Count} embeddings with threshold {Threshold}",
+                    topKSimilarEmbeddings.Count, minSimilarity);
 
-                // get the documents
-                var relatedDocuments = await _documentRepository.GetByIdsAsync(relatedDocumentsIds.Select(id => int.Parse(id)));
+                // 4. Aggregate by document for source tracking
+                var documentContributions = topKSimilarEmbeddings
+                    .GroupBy(doc => doc.DocumentId)
+                    .Select(g => new
+                    {
+                        DocumentId = int.Parse(g.Key),
+                        ChunksUsed = g.Count(),
+                        AvgSimilarity = g.Average(d => d.Similarity),
+                        MaxSimilarity = g.Max(d => d.Similarity),
+                        DocumentTitle = g.First().DocumentTitle,
+                        Chunks = g.ToList()
+                    })
+                    .OrderByDescending(d => d.MaxSimilarity)
+                    .ToList();
+
+                // Get the IDs of all of the documents from the top-K embeddings
+                var relatedDocumentsIds = documentContributions.Select(d => d.DocumentId).ToList();
+
+                // Get the documents
+                var relatedDocuments = await _documentRepository.GetByIdsAsync(relatedDocumentsIds);
 
                 // Format the retrieved passages
                 var retrievedResults = topKSimilarEmbeddings.Select(doc => new
                 {
-                    // fullDocumentText = relatedDocuments.FirstOrDefault(d => d.Id == int.Parse(doc.DocumentId))?.DocumentText,
                     fullDocumentText = doc.Text,
                     documentId = doc.DocumentId,
                     documentTitle = doc.DocumentTitle,
@@ -215,24 +256,71 @@ namespace rag_experiment.Controllers
                 }
                 string combinedContext = contextBuilder.ToString();
 
-                Console.WriteLine($"Combined context: {combinedContext.Length}");
-                Console.WriteLine($"Estimated Tokens: {combinedContext.Length / 4}");
+                _logger.LogInformation("Combined context: {Length} chars, Estimated tokens: {Tokens}",
+                    combinedContext.Length, combinedContext.Length / 4);
 
                 // Generate LLM response using the combined context (conversation + knowledge base)
                 string llmResponse = await _llmService.GenerateResponseAsync(request.Query, combinedContext);
 
-                // Return the formatted response with both retrieved chunks and LLM answer
+                // 5. Save assistant message WITH source citations
+                var assistantMessage = new Message
+                {
+                    Role = MessageRole.Assistant,
+                    Content = llmResponse,
+                    ConversationId = request.ConversationId,
+                    Timestamp = DateTime.UtcNow
+                };
+
+                // Add source citations
+                int order = 0;
+                foreach (var docContribution in documentContributions)
+                {
+                    assistantMessage.Sources.Add(new MessageSource
+                    {
+                        DocumentId = docContribution.DocumentId,
+                        RelevanceScore = docContribution.MaxSimilarity,
+                        ChunksUsed = docContribution.ChunksUsed,
+                        Order = order++
+                    });
+                }
+
+                // Save the message with sources
+                await _conversationRepository.AddMessageAsync(assistantMessage);
+
+                _logger.LogInformation("Saved assistant message with {SourceCount} source citations",
+                    assistantMessage.Sources.Count);
+
+                // 6. Return the formatted response with sources
                 return Ok(new
                 {
                     originalQuery = request.Query,
                     processedQuery = processedQuery,
                     conversationId = request.ConversationId,
+                    intent = intentResult.Intent.ToString(),
+                    intentReasoning = intentResult.Reasoning,
+                    retrievalConfig = new
+                    {
+                        maxK = maxK,
+                        minSimilarity = minSimilarity,
+                        description = retrievalConfig.Description
+                    },
                     llmResponse = llmResponse,
-                    retrievedChunks = retrievedResults
+                    sources = documentContributions.Select(d => new
+                    {
+                        documentId = d.DocumentId,
+                        documentTitle = d.DocumentTitle,
+                        fileName = relatedDocuments.FirstOrDefault(rd => rd.Id == d.DocumentId)?.FileName,
+                        relevanceScore = d.MaxSimilarity,
+                        chunksUsed = d.ChunksUsed
+                    }).ToList(),
+                    retrievedChunks = retrievedResults,
+                    totalChunks = topKSimilarEmbeddings.Count,
+                    uniqueDocuments = documentContributions.Count
                 });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred processing query");
                 return StatusCode(500, $"An error occurred processing the query: {ex.Message}");
             }
         }

@@ -212,6 +212,92 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         }
 
         /// <summary>
+        /// Adaptive retrieval method that finds similar embeddings using both a similarity threshold and maxK limit.
+        /// Returns all results above the threshold, up to maxK results.
+        /// This enables flexible retrieval strategies based on query intent.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="maxK">Maximum number of results to return</param>
+        /// <param name="minSimilarity">Minimum similarity threshold (0.0 to 1.0)</param>
+        /// <returns>Task containing a list of text chunks, document IDs, document titles, and their similarity scores</returns>
+        public async Task<List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>> FindSimilarEmbeddingsAdaptiveAsync(
+            float[] queryEmbedding,
+            int maxK = 10,
+            float minSimilarity = 0.70f)
+        {
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load ALL SystemKnowledgeBase embeddings from the database
+            var embeddings = await _context.Embeddings
+                .Where(e => e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                .ToListAsync();
+
+            // Calculate similarity for each embedding and filter by threshold
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                // Only include results above the similarity threshold
+                if (similarity >= minSimilarity)
+                {
+                    results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+                }
+            }
+
+            // Return up to maxK results that meet the threshold, ordered by similarity (highest first)
+            return results
+                .OrderByDescending(r => r.Similarity)
+                .Take(maxK)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Adaptive retrieval for user's documents scoped to a conversation.
+        /// Uses both similarity threshold and maxK limit for flexible retrieval.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="conversationId">The conversation ID to scope the search to</param>
+        /// <param name="maxK">Maximum number of results to return</param>
+        /// <param name="minSimilarity">Minimum similarity threshold (0.0 to 1.0)</param>
+        /// <returns>List of text chunks, document IDs, document titles, and their similarity scores</returns>
+        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)> FindSimilarEmbeddingsFromUsersDocumentsAdaptive(
+            float[] queryEmbedding,
+            int? conversationId,
+            int maxK = 10,
+            float minSimilarity = 0.70f)
+        {
+            var userId = _userContext.GetCurrentUserId();
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load all UserDocument embeddings from the database for the current user and conversation
+            var embeddings = _context.Embeddings
+                .Where(e => e.UserId == userId &&
+                           (conversationId == null || e.ConversationId == conversationId) &&
+                           e.Owner == EmbeddingOwner.UserDocument)
+                .ToList();
+
+            // Calculate similarity for each embedding and filter by threshold
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                // Only include results above the similarity threshold
+                if (similarity >= minSimilarity)
+                {
+                    results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+                }
+            }
+
+            // Return up to maxK results that meet the threshold, ordered by similarity (highest first)
+            return results
+                .OrderByDescending(r => r.Similarity)
+                .Take(maxK)
+                .ToList();
+        }
+
+        /// <summary>
         /// Calculates the cosine similarity between two embedding vectors.
         /// </summary>
         /// <param name="a">First embedding vector</param>

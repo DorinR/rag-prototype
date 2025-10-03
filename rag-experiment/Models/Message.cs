@@ -27,5 +27,8 @@ namespace rag_experiment.Models
         // Conversation association
         public int ConversationId { get; set; }
         public Conversation Conversation { get; set; }
+
+        // Source documents that contributed to this message (only populated for Assistant messages)
+        public List<MessageSource> Sources { get; set; } = new();
     }
 }

@@ -12,6 +12,7 @@ namespace rag_experiment.Services
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Conversation> Conversations { get; set; }
         public DbSet<Message> Messages { get; set; }
+        public DbSet<MessageSource> MessageSources { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
@@ -78,6 +79,33 @@ namespace rag_experiment.Services
                     .WithMany(c => c.Messages)
                     .HasForeignKey(e => e.ConversationId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure MessageSource entity
+            modelBuilder.Entity<MessageSource>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.MessageId).IsRequired();
+                entity.Property(e => e.DocumentId).IsRequired();
+                entity.Property(e => e.RelevanceScore).IsRequired();
+                entity.Property(e => e.ChunksUsed).IsRequired();
+                entity.Property(e => e.Order).IsRequired();
+
+                // Configure relationship to Message
+                entity.HasOne(e => e.Message)
+                    .WithMany(m => m.Sources)
+                    .HasForeignKey(e => e.MessageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Configure relationship to Document
+                entity.HasOne(e => e.Document)
+                    .WithMany(d => d.CitedInMessages)
+                    .HasForeignKey(e => e.DocumentId)
+                    .OnDelete(DeleteBehavior.Restrict); // Don't delete documents if message is deleted
+
+                // Create index for efficient queries
+                entity.HasIndex(e => e.MessageId);
+                entity.HasIndex(e => e.DocumentId);
             });
 
             // Configure Embedding entity

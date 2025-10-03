@@ -43,5 +43,17 @@ namespace rag_experiment.Repositories.Conversations
 
             return messages;
         }
+
+        /// <summary>
+        /// Adds a new message to a conversation
+        /// </summary>
+        /// <param name="message">The message to add</param>
+        /// <returns>The added message with its generated ID</returns>
+        public async Task<Message> AddMessageAsync(Message message)
+        {
+            await _dbContext.Messages.AddAsync(message);
+            await _dbContext.SaveChangesAsync();
+            return message;
+        }
     }
 }

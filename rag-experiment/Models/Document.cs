@@ -26,5 +26,8 @@ namespace rag_experiment.Models
         // Conversation association (instead of direct user association) - Optional
         public int? ConversationId { get; set; }
         public Conversation? Conversation { get; set; }
+
+        // Messages that cited this document as a source
+        public List<MessageSource> CitedInMessages { get; set; } = new();
     }
 }
