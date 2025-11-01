@@ -120,14 +120,15 @@ namespace rag_experiment.Controllers
                         m.Content,
                         m.Timestamp,
                         m.Metadata,
-                        Sources = m.Sources.OrderBy(s => s.Order).Select(s => new
-                        {
-                            s.DocumentId,
-                            DocumentTitle = s.Document.OriginalFileName,
-                            FileName = s.Document.FileName,
-                            s.RelevanceScore,
-                            s.ChunksUsed
-                        })
+                    Sources = m.Sources.OrderBy(s => s.Order).Select(s => new
+                    {
+                        s.DocumentId,
+                        DocumentTitle = s.Document.Title ?? s.Document.OriginalFileName,
+                        DocumentLink = s.Document.DocumentLink,
+                        FileName = s.Document.FileName,
+                        s.RelevanceScore,
+                        s.ChunksUsed
+                    })
                     })
                     .ToListAsync();
 
