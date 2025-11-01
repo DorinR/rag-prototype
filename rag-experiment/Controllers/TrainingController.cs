@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using rag_experiment.Services;
 using rag_experiment.Models;
 using rag_experiment.Services.Ingestion.VectorStorage;
+using rag_experiment.Repositories.Documents;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -21,6 +22,9 @@ namespace rag_experiment.Controllers
         private readonly ITextChunker _textChunker;
         private readonly AppDbContext _dbContext;
         private readonly RagSettings _ragSettings;
+        private readonly ILlmClientFactory _llmClientFactory;
+        private readonly IDocumentRepository _documentRepository;
+        private readonly ILogger<TrainingController> _logger;
 
         /// <summary>
         /// Initializes a new instance of the TrainingController
@@ -31,13 +35,19 @@ namespace rag_experiment.Controllers
         /// <param name="textChunker">Service for text chunking operations</param>
         /// <param name="dbContext">Database context for data operations</param>
         /// <param name="ragSettings">RAG configuration settings</param>
+        /// <param name="llmClientFactory">Factory for creating LLM clients</param>
+        /// <param name="documentRepository">Repository for document operations</param>
+        /// <param name="logger">Logger for controller operations</param>
         public TrainingController(
             EmbeddingRepository embeddingRepository,
             IEmbeddingGenerationService openAiEmbeddingGenerationService,
             ITextProcessor textProcessor,
             ITextChunker textChunker,
             AppDbContext dbContext,
-            IOptions<RagSettings> ragSettings)
+            IOptions<RagSettings> ragSettings,
+            ILlmClientFactory llmClientFactory,
+            IDocumentRepository documentRepository,
+            ILogger<TrainingController> logger)
         {
             _embeddingRepository = embeddingRepository;
             _openAiEmbeddingGenerationService = openAiEmbeddingGenerationService;
@@ -45,6 +55,9 @@ namespace rag_experiment.Controllers
             _textChunker = textChunker;
             _dbContext = dbContext;
             _ragSettings = ragSettings.Value;
+            _llmClientFactory = llmClientFactory;
+            _documentRepository = documentRepository;
+            _logger = logger;
         }
 
         /// <summary>
@@ -241,6 +254,144 @@ namespace rag_experiment.Controllers
             using (var sha256 = SHA256.Create())
             {
                 return sha256.ComputeHash(Encoding.UTF8.GetBytes(chunkText));
+            }
+        }
+
+        /// <summary>
+        /// Generates legal-style titles for all documents in the database using the Fast LLM model.
+        /// The LLM analyzes document content and creates titles in the format: "Party v Party, Court, Year".
+        /// Only processes documents that have content (DocumentText is not null/empty).
+        /// </summary>
+        /// <returns>Summary of title generation process including success/failure counts</returns>
+        [HttpPost("generate-titles")]
+        public async Task<IActionResult> GenerateTitles()
+        {
+            try
+            {
+                _logger.LogInformation("Starting document title generation process");
+
+                // Fetch all documents from database
+                var allDocuments = await _documentRepository.GetAllAsync();
+
+                if (allDocuments.Count == 0)
+                {
+                    return Ok(new
+                    {
+                        message = "No documents found in database",
+                        documentsProcessed = 0,
+                        titlesGenerated = 0,
+                        errors = 0
+                    });
+                }
+
+                // Filter to documents with content
+                var documentsWithContent = allDocuments
+                    .Where(d => !string.IsNullOrWhiteSpace(d.DocumentText))
+                    .ToList();
+
+                _logger.LogInformation("Found {TotalDocs} total documents, {WithContent} have content",
+                    allDocuments.Count, documentsWithContent.Count);
+
+                // Create Fast tier LLM client (cost-effective for this task)
+                var llmClient = _llmClientFactory.CreateClient(LlmModelTier.Fast);
+
+                int titlesGenerated = 0;
+                int errors = 0;
+                var results = new List<object>();
+
+                foreach (var document in documentsWithContent)
+                {
+                    try
+                    {
+                        _logger.LogDebug("Generating title for document ID: {DocId}, File: {FileName}",
+                            document.Id, document.OriginalFileName);
+
+                        // Take first 2000 characters of document for title generation (cost optimization)
+                        var contentPreview = document.DocumentText!.Length > 2000
+                            ? document.DocumentText.Substring(0, 2000) + "..."
+                            : document.DocumentText;
+
+                        // Craft prompt for legal title generation
+                        var prompt = @"Based on the legal document content provided, generate a professional legal citation-style title.
+The title should follow this format: ""Party A v. Party B, Court Name, Year"" (e.g., ""Smith v. Jones, Court of Appeals, 2023"").
+
+Guidelines:
+- Extract party names (plaintiff/appellant vs defendant/respondent)
+- Identify the court
+- Identify the year
+- Keep it concise and professional
+- If this isn't a court case, use an appropriate legal document title format
+- Return ONLY the title, nothing else
+
+Document content:";
+
+                        // Generate title using LLM
+                        var generatedTitle = await llmClient.GenerateResponseAsync(
+                            prompt,
+                            contentPreview);
+
+                        // Clean up the title (remove extra quotes, newlines, etc.)
+                        generatedTitle = generatedTitle.Trim().Trim('"', '\'', '\n', '\r');
+
+                        // Limit title length to reasonable size
+                        if (generatedTitle.Length > 200)
+                        {
+                            generatedTitle = generatedTitle.Substring(0, 197) + "...";
+                        }
+
+                        // Update document with generated title
+                        document.Title = generatedTitle;
+                        titlesGenerated++;
+
+                        _logger.LogInformation("Generated title for document {DocId}: {Title}",
+                            document.Id, generatedTitle);
+
+                        results.Add(new
+                        {
+                            documentId = document.Id,
+                            fileName = document.OriginalFileName,
+                            generatedTitle = generatedTitle,
+                            success = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        errors++;
+                        _logger.LogError(ex, "Error generating title for document ID: {DocId}", document.Id);
+
+                        results.Add(new
+                        {
+                            documentId = document.Id,
+                            fileName = document.OriginalFileName,
+                            error = ex.Message,
+                            success = false
+                        });
+                    }
+                }
+
+                // Save all changes to database
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Title generation completed. Processed: {Total}, Success: {Success}, Errors: {Errors}",
+                    documentsWithContent.Count, titlesGenerated, errors);
+
+                return Ok(new
+                {
+                    message = "Document title generation completed",
+                    totalDocuments = allDocuments.Count,
+                    documentsWithContent = documentsWithContent.Count,
+                    documentsProcessed = documentsWithContent.Count,
+                    titlesGenerated = titlesGenerated,
+                    errors = errors,
+                    modelUsed = "Fast (GPT-5 Nano)",
+                    results = results
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fatal error during title generation process");
+                return StatusCode(500, $"An error occurred during title generation: {ex.Message}");
             }
         }
     }

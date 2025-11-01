@@ -93,6 +93,9 @@ namespace rag_experiment.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Title")
+                        .HasColumnType("text");
+
                     b.Property<string>("TrainingFolderName")
                         .HasColumnType("text");
 

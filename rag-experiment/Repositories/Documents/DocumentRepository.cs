@@ -69,5 +69,14 @@ namespace rag_experiment.Repositories.Documents
                 .Include(d => d.Conversation)
                 .FirstOrDefaultAsync(d => d.Id == documentId && d.Conversation.UserId == userId);
         }
+
+        /// <summary>
+        /// Retrieves all documents from the database
+        /// </summary>
+        /// <returns>Collection of all documents</returns>
+        public async Task<List<Document>> GetAllAsync()
+        {
+            return await _dbContext.Documents.ToListAsync();
+        }
     }
 }

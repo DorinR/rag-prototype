@@ -176,6 +176,10 @@ builder.Services.Configure<RagSettings>(
 builder.Services.Configure<OpenAISettings>(
     builder.Configuration.GetSection(OpenAISettings.SectionName));
 
+// Configure LLM Models settings for factory pattern
+builder.Services.Configure<LlmModelsSettings>(
+    builder.Configuration.GetSection(LlmModelsSettings.SectionName));
+
 // Configure OpenAI HttpClient
 builder.Services.AddHttpClient("OpenAI", (serviceProvider, client) =>
 {
@@ -183,6 +187,11 @@ builder.Services.AddHttpClient("OpenAI", (serviceProvider, client) =>
     client.BaseAddress = new Uri(settings.BaseUrl);
     client.DefaultRequestHeaders.Add("Authorization", $"Bearer {settings.ApiKey}");
 });
+
+// Register LLM Client Factory for flexible model selection
+// Use ILlmClientFactory in new services to dynamically choose between Fast/Standard/Premium models
+// Legacy services (OpenAILlmService, QueryPreprocessor, etc.) remain unchanged for stability
+builder.Services.AddScoped<ILlmClientFactory, LlmClientFactory>();
 
 // Register Markdown table service with configurable file path
 var markdownTablePath = builder.Configuration["MarkdownTablePath"] ?? "experiment_results.md";

@@ -35,5 +35,11 @@ namespace rag_experiment.Repositories.Documents
         /// <param name="userId">The user ID for authorization</param>
         /// <returns>The document if found and accessible, null otherwise</returns>
         Task<Document?> GetByIdWithAuthorizationAsync(int documentId, int userId);
+
+        /// <summary>
+        /// Retrieves all documents from the database
+        /// </summary>
+        /// <returns>Collection of all documents</returns>
+        Task<List<Document>> GetAllAsync();
     }
 }
