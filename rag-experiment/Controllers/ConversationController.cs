@@ -164,7 +164,7 @@ namespace rag_experiment.Controllers
                         Sources = m.Sources.OrderBy(s => s.Order).Select(s => new
                         {
                             s.DocumentId,
-                            DocumentTitle = s.Document.OriginalFileName,
+                            DocumentTitle = s.Document.Title,
                             FileName = s.Document.FileName,
                             s.RelevanceScore,
                             s.ChunksUsed
