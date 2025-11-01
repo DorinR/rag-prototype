@@ -92,7 +92,7 @@ else
 fi
 
 echo -e "${YELLOW}🗑️  Clearing existing data from production tables...${NC}"
-psql $PROD_CONNECTION_STRING -c "TRUNCATE TABLE \"Embeddings\", \"Documents\" RESTART IDENTITY CASCADE;"
+psql $PROD_CONNECTION_STRING -c "TRUNCATE TABLE \"MessageSources\", \"Messages\", \"Conversations\", \"Embeddings\", \"Documents\" RESTART IDENTITY CASCADE;"
 
 if [ $? -eq 0 ]; then
   echo -e "${GREEN}✅ Tables cleared successfully${NC}"
